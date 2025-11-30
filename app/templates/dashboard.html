@@ -601,6 +601,11 @@
 
     // 2) Get AI-style risk explanation
     const riskRes = await fetch(`/sprints/${sprintId}/risk`);
+    if (!sprintRes.ok) {
+      console.error("Failed to fetch sprint", await sprintRes.text());
+      alert("Failed to load sprint details.");
+      return;
+    }
     const risk = await riskRes.json();
 
     // Update title + text from risk API
