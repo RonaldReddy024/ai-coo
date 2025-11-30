@@ -3,9 +3,15 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from .. import models
 from ..deps import get_db
-from ..schemas import Issue, IssueCreate, Sprint, SprintCreate, SprintWithIssues
+from .. import models
+from ..schemas import (
+    SprintWithIssues,
+    SprintCreate,
+    Sprint as SprintSchema,
+    IssueCreate,
+    Issue as IssueSchema,
+)
 
 router = APIRouter()
 
@@ -14,7 +20,7 @@ def compute_risk_for_sprint(sprint: models.Sprint) -> None:
     """
     Simple heuristic:
     - % incomplete issues vs days remaining
-    - if many incomplete and little time => high risk
+    - blockers increase risk
     """
     now = datetime.utcnow()
     total_issues = len(sprint.issues)
@@ -26,8 +32,10 @@ def compute_risk_for_sprint(sprint: models.Sprint) -> None:
         return
 
     incomplete = [
-        i for i in sprint.issues if i.status.lower() not in ("done", "resolved", "closed")
-    ]    
+        i
+        for i in sprint.issues
+        if i.status.lower() not in ("done", "resolved", "closed")
+    ] 
     incomplete_ratio = len(incomplete) / total_issues
 
     # Time factor
@@ -41,9 +49,7 @@ def compute_risk_for_sprint(sprint: models.Sprint) -> None:
 
     # Simple risk formula
     risk_score = incomplete_ratio * 0.6 + days_progress * 0.3 + blocker_factor
-
-    # clamp between 0 and 1
-    risk_score = max(0.0, min(1.0, risk_score))
+    risk_score = max(0.0, min(1.0, risk_score))  # clamp 0–1
 
     if risk_score > 0.7:
         level = "high"
@@ -57,9 +63,10 @@ def compute_risk_for_sprint(sprint: models.Sprint) -> None:
     sprint.last_evaluated_at = now
 
 
-@router.post("/", response_model=Sprint)
+# ---------- Sprints CRUD / listing ----------
+
+@router.post("/", response_model=SprintSchema)
 def create_sprint(payload: SprintCreate, db: Session = Depends(get_db)):
-    # ensure project exists
     project = db.query(models.Project).filter_by(id=payload.project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -76,26 +83,27 @@ def create_sprint(payload: SprintCreate, db: Session = Depends(get_db)):
     return sprint
 
 
-@router.get("/", response_model=list[Sprint])
+@router.get("/", response_model=list[SprintSchema])
 def list_sprints(
     db: Session = Depends(get_db),
+    company_id: int | None = Query(None, description="Filter by company_id"),
     project_id: int | None = Query(None, description="Filter by project_id"),
 ):
-    query = db.query(models.Sprint)
+    query = db.query(models.Sprint).join(models.Project)
+
+    if company_id is not None:
+        query = query.join(models.Company).filter(models.Company.id == company_id)
+
     if project_id is not None:
         query = query.filter(models.Sprint.project_id == project_id)
+
     sprints = query.all()
-
-    # Recompute risk for each sprint to ensure freshness
-    for sprint in sprints:
-        _ = sprint.issues  # ensure issues are loaded
-        compute_risk_for_sprint(sprint)
-    db.commit()
-
     return sprints
 
 
-@router.post("/{sprint_id}/issues", response_model=Issue)
+# ---------- Issues ----------
+
+@router.post("/{sprint_id}/issues", response_model=IssueSchema)
 def create_issue_for_sprint(
     sprint_id: int, payload: IssueCreate, db: Session = Depends(get_db)
 ):
@@ -118,16 +126,15 @@ def create_issue_for_sprint(
     return issue
 
 
+# ---------- Sprint details & risk ----------
+
 @router.get("/{sprint_id}", response_model=SprintWithIssues)
 def get_sprint(sprint_id: int, db: Session = Depends(get_db)):
     sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
 
-    # Ensure issues are loaded
     _ = sprint.issues
-
-    # Recompute risk when fetched (you can move this to a background job)
     compute_risk_for_sprint(sprint)
     db.commit()
     db.refresh(sprint)
@@ -141,7 +148,6 @@ def get_sprint_risk_summary(sprint_id: int, db: Session = Depends(get_db)):
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
 
-    # ensure issues loaded
     _ = sprint.issues
     compute_risk_for_sprint(sprint)
     db.commit()
@@ -149,7 +155,9 @@ def get_sprint_risk_summary(sprint_id: int, db: Session = Depends(get_db)):
 
     total = len(sprint.issues)
     incomplete = [
-        i for i in sprint.issues if i.status.lower() not in ("done", "resolved", "closed")
+        i
+        for i in sprint.issues
+        if i.status.lower() not in ("done", "resolved", "closed")
     ]
     blockers = [i for i in sprint.issues if i.is_blocker]
 
@@ -171,4 +179,19 @@ def get_sprint_risk_summary(sprint_id: int, db: Session = Depends(get_db)):
         "blockers": len(blockers),
         "last_evaluated_at": sprint.last_evaluated_at,
         "explanation": explanation,
+    }
+
+
+# ---------- Filters metadata for dashboard ----------
+
+@router.get("/filters", response_model=dict)
+def get_filter_metadata(db: Session = Depends(get_db)):
+    companies = db.query(models.Company).all()
+    projects = db.query(models.Project).all()
+
+    return {
+        "companies": [{"id": c.id, "name": c.name} for c in companies],
+        "projects": [
+            {"id": p.id, "name": p.name, "company_id": p.company_id} for p in projects
+        ],
     }
