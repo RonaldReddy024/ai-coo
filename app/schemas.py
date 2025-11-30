@@ -1,6 +1,8 @@
-from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class SprintBase(BaseModel):
     id: int
@@ -11,7 +13,8 @@ class SprintBase(BaseModel):
     risk_level: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
 
 class IssueBase(BaseModel):
     id: int
@@ -24,7 +27,8 @@ class IssueBase(BaseModel):
     is_blocker: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
 
 class SprintWithIssues(SprintBase):
     issues: List[IssueBase] = []
