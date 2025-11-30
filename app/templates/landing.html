@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI COO – Your AI Workflow Copilot</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #1d4ed8 0, #020617 55%);
+            color: #e5e7eb;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-size: 13px;
+            color: #a5b4fc;
+        }
+
+        .nav-links a {
+            font-size: 14px;
+            color: #e5e7eb;
+            text-decoration: none;
+            margin-left: 16px;
+            opacity: 0.8;
+        }
+
+        .nav-links a:hover {
+            opacity: 1;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr);
+            gap: 32px;
+            align-items: center;
+        }
+
+        .hero-title {
+            font-size: 40px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .hero-subtitle {
+            font-size: 16px;
+            color: #cbd5f5;
+            margin-bottom: 20px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(129, 140, 248, 0.7);
+            padding: 4px 10px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 14px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .button-primary {
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            background: #6366f1;
+            color: white;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .button-primary:hover {
+            background: #4f46e5;
+        }
+
+        .button-secondary {
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: 1px solid #4b5563;
+            font-size: 14px;
+            font-weight: 500;
+            background: transparent;
+            color: #e5e7eb;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .hero-footnote {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .hero-panel {
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(55, 65, 81, 0.9);
+            padding: 16px 18px;
+            box-shadow: 0 22px 40px rgba(15, 23, 42, 0.9);
+        }
+
+        .hero-panel-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            margin-bottom: 12px;
+        }
+
+        .hero-panel-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 13px;
+        }
+
+        .hero-panel-item + .hero-panel-item {
+            border-top: 1px solid #1f2937;
+        }
+
+        .risk-chip {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .risk-high {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f97373;
+        }
+
+        .risk-medium {
+            background: rgba(234, 179, 8, 0.1);
+            color: #eab308;
+        }
+
+        .risk-low {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="logo">AI COO</div>
+        <div class="nav-links">
+            <a href="/dashboard">Dashboard</a>
+            <a href="/login">Login</a>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div>
+            <div class="hero-badge">Early preview · Internal</div>
+            <div class="hero-title">Your AI workflow copilot for SaaS teams.</div>
+            <div class="hero-subtitle">
+                AI COO watches your sprints, issues, and signals from tools like Jira and Slack,
+                then tells you—in plain language—where your team is at risk and what to do next.
+            </div>
+
+            <div class="hero-actions">
+                <a href="/dashboard" class="button-primary">Open dashboard</a>
+                <a href="/login" class="button-secondary">Login as founder / manager</a>
+            </div>
+
+            <div class="hero-footnote">
+                No complex setup. Start with one project, connect your tools later, and let the AI COO surface what matters.
+            </div>
+        </div>
+
+        <div class="hero-panel">
+            <div class="hero-panel-title">Today’s sprint risk snapshot</div>
+            <div class="hero-panel-item">
+                <span>Checkout revamp</span>
+                <span class="risk-chip risk-high">HIGH</span>
+            </div>
+            <div class="hero-panel-item">
+                <span>Onboarding UX polish</span>
+                <span class="risk-chip risk-medium">MEDIUM</span>
+            </div>
+            <div class="hero-panel-item">
+                <span>Billing reliability</span>
+                <span class="risk-chip risk-low">LOW</span>
+            </div>
+        </div>
+    </section>
+</div>
+</body>
+</html>
