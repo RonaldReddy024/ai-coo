@@ -36,28 +36,6 @@ class Project(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ---------- Issue Schemas ----------
-
-class IssueBase(BaseModel):
-    key: str
-    title: str
-    status: str
-    assignee: Optional[str] = None
-    is_blocker: bool = False
-
-
-class IssueCreate(IssueBase):
-    sprint_id: int
-
-
-class Issue(IssueBase):
-    id: int
-    updated_at: datetime
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 # ---------- Sprint Schemas ----------
 
 class SprintBase(BaseModel):
@@ -85,4 +63,29 @@ class Sprint(BaseModel):
 
 
 class SprintWithIssues(Sprint):
-    issues: List[Issue]
+    issues: List["Issue"] = []
+
+
+# ---------- Issue Schemas ----------
+
+class IssueBase(BaseModel):
+    title: str
+    status: str
+    assignee: Optional[str] = None
+    is_blocker: bool = False
+
+
+class IssueCreate(IssueBase):
+    # sprint_id is not strictly required in body, we’ll pass it via path,
+    # but it doesn't hurt to keep it here if you want.
+    sprint_id: Optional[int] = None
+
+
+class Issue(IssueBase):
+    id: int
+    key: str
+    sprint_id: int
+    updated_at: datetime
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
