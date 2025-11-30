@@ -295,6 +295,33 @@
             opacity: 0.95;       /* subtle hover; optional */
         }
 
+        .issue-detail {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .issue-detail.hidden {
+            display: none;
+        }
+
+        .issue-detail h4 {
+            margin: 0 0 6px 0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            opacity: 0.8;
+        }
+
+        .issue-detail p {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            opacity: 0.9;
+        }
+
         .checkbox-row {
             display: flex;
             align-items: center;
@@ -448,6 +475,11 @@
             </div>
           </div>
 
+          <div id="issue-detail" class="issue-detail hidden">
+            <h4 id="issue-detail-title">Issue details</h4>
+            <p id="issue-detail-text"></p>
+          </div>
+
           <hr />
 
           <div id="charts-section">
@@ -537,6 +569,8 @@
   const modalCreateBtn = document.getElementById("modal-create-btn");
 
   let currentSprintId = null;
+  let currentSprintData = null;
+  let currentIssuesById = {};
   let burndownChart = null;
   let velocityChart = null;
     
@@ -638,6 +672,17 @@
       return;
     }
     const sprint = await sprintRes.json();
+
+    currentSprintData = sprint;
+    currentIssuesById = {};
+    (sprint.issues || []).forEach((issue) => {
+      currentIssuesById[issue.id] = issue;
+    });
+
+    const issueDetailBox = document.getElementById("issue-detail");
+    if (issueDetailBox) {
+      issueDetailBox.classList.add("hidden");
+    }
 
     // 2) Get AI-style risk explanation
     const riskRes = await fetch(`/sprints/risk/${sprintId}`);
@@ -779,8 +824,97 @@
   }
 
   function selectIssue(issueId) {
-    console.log("Clicked issue", issueId);
-    // we’ll turn this into an issue detail panel later
+    const issue = currentIssuesById[issueId];
+    if (!issue) {
+      console.warn("Issue not found in current sprint", issueId);
+      return;
+    }
+
+    const box = document.getElementById("issue-detail");
+    const titleEl = document.getElementById("issue-detail-title");
+    const textEl = document.getElementById("issue-detail-text");
+
+    if (!box || !titleEl || !textEl) return;
+
+    const status = (issue.status || "").toLowerCase();
+    const isDone = ["done", "resolved", "closed"].includes(status);
+
+    const created = issue.created_at ? new Date(issue.created_at) : null;
+    const updated = issue.updated_at ? new Date(issue.updated_at) : null;
+
+    const now = new Date();
+
+    let ageDays = null;
+    if (created) {
+      ageDays = Math.round((now - created) / (1000 * 60 * 60 * 24));
+    }
+
+    let sinceUpdateDays = null;
+    if (updated) {
+      sinceUpdateDays = Math.round((now - updated) / (1000 * 60 * 60 * 24));
+    }
+
+    // Title
+    titleEl.textContent = `${issue.key} – ${issue.title}`;
+
+    // Build explanation paragraphs
+    const parts = [];
+
+    // Overall status
+    if (isDone) {
+      parts.push("This issue is marked as DONE.");
+    } else if (status === "in progress") {
+      parts.push("This issue is currently IN PROGRESS.");
+    } else if (status === "to do" || status === "todo" || status === "open") {
+      parts.push("This issue is still OPEN and has not been completed yet.");
+    } else if (status) {
+      parts.push(`This issue is currently in status “${issue.status}”.`);
+    } else {
+      parts.push("This issue does not have a clear status set.");
+    }
+
+    // Blocker hint
+    if (issue.is_blocker) {
+      parts.push(
+        "It is flagged as a BLOCKER, which means other work may be blocked until this is resolved."
+      );
+    }
+
+    // Assignee
+    if (issue.assignee) {
+      parts.push(`The current assignee is ${issue.assignee}.`);
+    } else {
+      parts.push("There is no assignee on this issue yet.");
+    }
+
+    // Timing
+    if (ageDays !== null) {
+      parts.push(`The issue was created about ${ageDays} day(s) ago.`);
+    }
+    if (sinceUpdateDays !== null) {
+      parts.push(`The latest update was about ${sinceUpdateDays} day(s) ago.`);
+    }
+
+    // Sprint context (optional)
+    if (currentSprintData) {
+      const end = new Date(currentSprintData.end_date);
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const daysLeft = Math.round((end - now) / msPerDay);
+      if (daysLeft >= 0) {
+        parts.push(
+          `The sprint ends in approximately ${daysLeft} day(s); delays on this issue may affect the sprint delivery.`
+        );
+      } else {
+        parts.push(
+          "The sprint has already passed its planned end date, so any remaining work on this issue is overdue relative to the sprint."
+        );
+      }
+    }
+
+    textEl.textContent = parts.join(" ");
+
+    // Show the box
+    box.classList.remove("hidden");
   }
 
   async function updateVelocityChart() {
