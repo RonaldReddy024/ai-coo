@@ -1,19 +1,14 @@
-from datetime import datetime, timedelta
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..deps import get_db
 from .. import models
-from ..schemas import (
-    SprintWithIssues,
-    Issue as IssueSchema,
-    IssueCreate,
-    SprintCreate,
-    SprintRiskReport,
-    Sprint as SprintSchema,
-)
+from ..schemas import Sprint, SprintWithIssues
+from ..schemas import Issue as IssueSchema
+from ..schemas import IssueCreate, SprintCreate, SprintRiskReport
 
 router = APIRouter()
 
@@ -148,7 +143,7 @@ def generate_risk_explanation(sprint: models.Sprint) -> tuple[str, str]:
 
 # ---------- Sprints CRUD / listing ----------
 
-@router.post("/", response_model=SprintSchema)
+@router.post("/", response_model=Sprint)
 def create_sprint(payload: SprintCreate, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter_by(id=payload.project_id).first()
     if not project:
@@ -166,7 +161,7 @@ def create_sprint(payload: SprintCreate, db: Session = Depends(get_db)):
     return sprint
 
 
-@router.get("/", response_model=list[SprintSchema])
+@router.get("/", response_model=list[Sprint])
 def list_sprints(
     db: Session = Depends(get_db),
     company_id: int | None = Query(None, description="Filter by company_id"),
@@ -181,6 +176,28 @@ def list_sprints(
         query = query.filter(models.Sprint.project_id == project_id)
 
     sprints = query.all()
+    return sprints
+
+@router.get("/with_issues", response_model=List[SprintWithIssues])
+def list_sprints_with_issues(
+    company_id: Optional[int] = None,
+    project_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Sprint)
+
+    if project_id:
+        query = query.filter(models.Sprint.project_id == project_id)
+    elif company_id:
+        query = query.join(models.Project).filter(models.Project.company_id == company_id)
+
+    sprints = query.all()
+
+    for s in sprints:
+        _ = s.issues
+        compute_risk_for_sprint(s)
+    db.commit()
+
     return sprints
 
 
