@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login – AI COO</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #020617;
+            color: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .card {
+            width: 100%;
+            max-width: 360px;
+            padding: 20px 22px;
+            border-radius: 16px;
+            background: #020617;
+            border: 1px solid #1f2937;
+        }
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 16px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            margin-bottom: 4px;
+            display: block;
+        }
+        .input {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid #374151;
+            background: #020617;
+            color: #e5e7eb;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        .input:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+        .button-primary {
+            width: 100%;
+            padding: 9px 14px;
+            border-radius: 999px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            background: #6366f1;
+            color: white;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .button-primary:hover {
+            background: #4f46e5;
+        }
+        .footnote {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="title">Login</div>
+    <div class="subtitle">This is a lightweight preview. We’ll just remember your name locally.</div>
+    <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+            <label class="label" for="name">Your name</label>
+            <input id="name" class="input" required placeholder="e.g. Ronald Reddy">
+        </div>
+        <div class="form-group">
+            <label class="label" for="company">Company / team name</label>
+            <input id="company" class="input" placeholder="e.g. DesiBeat">
+        </div>
+        <button type="submit" class="button-primary">Continue to dashboard</button>
+    </form>
+    <div class="footnote">
+        Later this can be replaced with real auth & org selection (JWT, SSO, etc.).
+    </div>
+</div>
+<script>
+    function handleLogin(e) {
+        e.preventDefault();
+        const name = document.getElementById("name").value.trim();
+        const company = document.getElementById("company").value.trim();
+        if (!name) return;
+
+        // just store locally as a UX touch
+        window.localStorage.setItem("ai_coo_user_name", name);
+        window.localStorage.setItem("ai_coo_company_name", company);
+        window.location.href = "/dashboard";
+    }
+</script>
+</body>
+</html>
