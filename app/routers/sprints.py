@@ -8,10 +8,11 @@ from ..deps import get_db
 from .. import models
 from ..schemas import (
     SprintWithIssues,
-    SprintCreate,
-    Sprint as SprintSchema,
     Issue as IssueSchema,
     IssueCreate,
+    SprintCreate,
+    SprintRiskReport,
+    Sprint as SprintSchema,
 )
 
 router = APIRouter()
@@ -62,6 +63,87 @@ def compute_risk_for_sprint(sprint: models.Sprint) -> None:
     sprint.risk_score = risk_score
     sprint.risk_level = level
     sprint.last_evaluated_at = now
+
+
+def generate_risk_explanation(sprint: models.Sprint) -> tuple[str, str]:
+    """
+    Returns (summary, details) text for the sprint's risk.
+    """
+    total_issues = len(sprint.issues)
+    blockers = [i for i in sprint.issues if i.is_blocker]
+    done_like_statuses = ("done", "resolved", "closed")
+    done_issues = [i for i in sprint.issues if i.status.lower() in done_like_statuses]
+    open_issues = [i for i in sprint.issues if i not in done_issues]
+
+    now = datetime.utcnow()
+    days_left = (sprint.end_date - now).days
+    total_days = (sprint.end_date - sprint.start_date).days or 1
+    elapsed_days = max(0, min(total_days, (now - sprint.start_date).days))
+
+    # --- Summary sentence ---
+    if sprint.risk_level == "high":
+        summary = f"Sprint '{sprint.name}' is at HIGH risk and may not hit its end date on time."
+    elif sprint.risk_level == "medium":
+        summary = f"Sprint '{sprint.name}' is at MEDIUM risk and will need close monitoring."
+    else:
+        summary = f"Sprint '{sprint.name}' is currently at LOW risk based on the latest signals."
+
+    # --- Details paragraph ---
+    parts = []
+
+    # Issue counts
+    if total_issues == 0:
+        parts.append("There are no issues linked to this sprint yet, so the risk assessment is based only on dates.")
+    else:
+        parts.append(
+            f"The sprint has {total_issues} issues in total: "
+            f"{len(done_issues)} done and {len(open_issues)} still open."
+        )
+
+    # Blockers
+    if blockers:
+        blocker_titles = ", ".join(b.title for b in blockers[:3])
+        extra = "" if len(blockers) <= 3 else f" and {len(blockers) - 3} more"
+        parts.append(
+            f"{len(blockers)} issue(s) are flagged as blockers ({blocker_titles}{extra}). "
+            "These should be cleared first to unblock progress."
+        )
+
+    # Time progress
+    if days_left < 0:
+        parts.append("The sprint has already passed its planned end date.")
+    else:
+        parts.append(
+            f"The sprint runs from {sprint.start_date.date()} to {sprint.end_date.date()}, "
+            f"with about {max(days_left, 0)} day(s) remaining."
+        )
+
+    if total_days > 0:
+        time_progress = elapsed_days / total_days
+        if total_issues > 0:
+            completion_ratio = len(done_issues) / total_issues
+        else:
+            completion_ratio = 0.0
+
+        parts.append(
+            f"Roughly {int(time_progress * 100)}% of the time has elapsed, while about "
+            f"{int(completion_ratio * 100)}% of the work is marked done."
+        )
+
+        if completion_ratio + 0.15 < time_progress:
+            parts.append(
+                "Work completion is lagging behind time elapsed, which increases the risk of spillover."
+            )
+        elif completion_ratio > time_progress + 0.15:
+            parts.append(
+                "Work completion is ahead of schedule relative to time elapsed, which reduces risk."
+            )
+
+    # Risk score hint
+    parts.append(f"Current risk score is {sprint.risk_score:.2f} on a 0–1 scale.")
+
+    details = " ".join(parts)
+    return summary, details
 
 
 # ---------- Sprints CRUD / listing ----------
@@ -163,44 +245,36 @@ def get_sprint(sprint_id: int, db: Session = Depends(get_db)):
     return sprint
 
 
+@router.get("/{sprint_id}/risk", response_model=SprintRiskReport)
+def get_sprint_risk(sprint_id: int, db: Session = Depends(get_db)):
+    sprint = (
+        db.query(models.Sprint)
+        .filter_by(id=sprint_id)
+        .first()
+    )
 @router.get("/{sprint_id}/risk", response_model=dict)
 def get_sprint_risk_summary(sprint_id: int, db: Session = Depends(get_db)):
     sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
 
+    # Ensure issues are loaded
     _ = sprint.issues
+
+    # Recompute risk before generating explanation
     compute_risk_for_sprint(sprint)
     db.commit()
     db.refresh(sprint)
 
-    total = len(sprint.issues)
-    incomplete = [
-        i
-        for i in sprint.issues
-        if i.status.lower() not in ("done", "resolved", "closed")
-    ]
-    blockers = [i for i in sprint.issues if i.is_blocker]
+    summary, details = generate_risk_explanation(sprint)
 
-    explanation = (
-        f"Sprint '{sprint.name}' is currently rated as {sprint.risk_level.upper()} risk "
-        f"with a score of {sprint.risk_score:.2f}. "
-        f"{len(incomplete)} out of {total} issues are still open, "
-        f"and {len(blockers)} are marked as blockers. "
-        f"End date: {sprint.end_date.date()}."
+    return SprintRiskReport(
+        sprint_id=sprint.id,
+        risk_level=sprint.risk_level,
+        risk_score=sprint.risk_score,
+        summary=summary,
+        details=details,
     )
-
-    return {
-        "id": sprint.id,
-        "name": sprint.name,
-        "risk_level": sprint.risk_level,
-        "risk_score": sprint.risk_score,
-        "open_issues": len(incomplete),
-        "total_issues": total,
-        "blockers": len(blockers),
-        "last_evaluated_at": sprint.last_evaluated_at,
-        "explanation": explanation,
-    }
 
 
 # ---------- Filters metadata for dashboard ----------
