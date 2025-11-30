@@ -8,7 +8,7 @@ from . import models  # register models
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="AI COO for SaaS")
+app = FastAPI(title="WorkYodha AI COO for SaaS")
 
 # Routers
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
@@ -38,4 +38,4 @@ async def dashboard(request: Request):
 # Optional: simple health endpoint
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "AI COO backend running"}
+    return {"status": "ok", "app": "WorkYodha AI COO backend running"}
