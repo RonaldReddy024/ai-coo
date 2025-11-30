@@ -223,6 +223,68 @@
             outline-offset: -1px;
         }
 
+        .risk-panel {
+            border-radius: 16px;
+            background: #020617;
+            border: 1px solid #1f2937;
+            padding: 16px 18px;
+            box-sizing: border-box;
+        }
+
+        .issues-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+            margin-bottom: 8px;
+        }
+
+        .small-btn {
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid #374151;
+            background: #111827;
+            color: #e5e7eb;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .small-btn:hover {
+            background: #1f2937;
+        }
+
+        .issues-list {
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 10px;
+            background: #0b1224;
+        }
+
+        .issue-row {
+            padding: 8px 10px;
+            border-bottom: 1px solid #1f2937;
+        }
+
+        .issue-row:last-child {
+            border-bottom: none;
+        }
+
+        .issue-title {
+            font-weight: 600;
+        }
+
+        .issue-meta {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
         /* Modal */
 
         .modal {
@@ -348,15 +410,24 @@
 
     <!-- RIGHT: Risk details -->
     <div class="panel">
-        <h2>AI Risk Report</h2>
-        <div id="risk-card" class="card">
-            <div id="risk-title" class="risk-title">
-                Select a sprint to see details
+        <div class="risk-panel">
+          <h2 id="risk-title">Select a sprint to see details</h2>
+          <p id="risk-text">
+            This panel shows a natural-language explanation of why a sprint
+            is considered low, medium, or high risk.
+          </p>
+
+          <hr />
+
+          <div id="issues-section">
+            <div class="issues-header">
+              <h3>Issues</h3>
+              <button id="add-issue-btn" class="small-btn">+ Add issue</button>
             </div>
-            <div id="risk-text" class="risk-explanation">
-                This panel shows a natural-language explanation of why a sprint is considered low, medium, or high risk,
-                including open issues, blockers, and time remaining.
+            <div id="issues-list" class="issues-list">
+              <p class="empty-state">No sprint selected.</p>
             </div>
+          </div>
         </div>
     </div>
 </div>
@@ -388,6 +459,38 @@
       <button id="modal-cancel-btn" class="button-secondary">Cancel</button>
       <button id="modal-create-btn" class="button-primary">Create sprint</button>
     </div>
+  </div>
+</div>
+
+<!-- Create Issue Modal -->
+<div id="create-issue-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>Create new issue</h2>
+
+    <label for="issue-title">Title</label>
+    <input id="issue-title" type="text" placeholder="e.g. Fix DB migration bug" />
+
+    <label for="issue-status">Status</label>
+    <select id="issue-status">
+      <option value="To Do">To Do</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Review">Review</option>
+      <option value="Done">Done</option>
+    </select>
+
+    <label for="issue-assignee">Assignee</label>
+    <input id="issue-assignee" type="text" placeholder="e.g. Ronald" />
+
+    <label class="checkbox-row">
+      <input id="issue-blocker" type="checkbox" />
+      <span>Is blocker?</span>
+    </label>
+
+    <div class="modal-actions">
+      <button id="issue-cancel-btn">Cancel</button>
+      <button id="issue-create-btn">Create issue</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -404,13 +507,29 @@
   const modalCancelBtn = document.getElementById("modal-cancel-btn");
   const modalCreateBtn = document.getElementById("modal-create-btn");
 
+  let currentSprintId = null;
+
+  const issuesList = document.getElementById("issues-list");
+  const addIssueBtn = document.getElementById("add-issue-btn");
+
+  const issueModal = document.getElementById("create-issue-modal");
+  const issueTitleInput = document.getElementById("issue-title");
+  const issueStatusSelect = document.getElementById("issue-status");
+  const issueAssigneeInput = document.getElementById("issue-assignee");
+  const issueBlockerCheckbox = document.getElementById("issue-blocker");
+  const issueCancelBtn = document.getElementById("issue-cancel-btn");
+  const issueCreateBtn = document.getElementById("issue-create-btn");
+
+  const riskTitle = document.getElementById("risk-title");
+  const riskText = document.getElementById("risk-text");
+
+
   // ====== LOAD COMPANIES & PROJECTS ======
 
   async function loadCompanies() {
     const res = await fetch("/companies");
     const companies = await res.json();
 
-    // top filter
     companyFilter.innerHTML = '<option value="">All companies</option>';
     companies.forEach(c => {
       const opt = document.createElement("option");
@@ -421,7 +540,6 @@
   }
 
   async function loadProjectsForCompany(companyId) {
-    // clear selects if no company chosen
     if (!companyId) {
       projectFilter.innerHTML = '<option value="">All projects</option>';
       modalProjectSelect.innerHTML = '<option value="">Select a project</option>';
@@ -431,7 +549,6 @@
     const res = await fetch(`/companies/${companyId}/projects`);
     const projects = await res.json();
 
-    // top PROJECT filter
     projectFilter.innerHTML = '<option value="">All projects</option>';
     projects.forEach(p => {
       const opt = document.createElement("option");
@@ -440,7 +557,6 @@
       projectFilter.appendChild(opt);
     });
 
-    // MODAL project select
     modalProjectSelect.innerHTML = '<option value="">Select a project</option>';
     projects.forEach(p => {
       const opt = document.createElement("option");
@@ -484,21 +600,103 @@
     const res = await fetch(`/sprints/${sprintId}`);
     const sprint = await res.json();
 
-    // update right-hand AI risk report
-    const reportTitle = document.getElementById("risk-title");
-    const reportText = document.getElementById("risk-text");
+    currentSprintId = sprint.id;
 
-    reportTitle.textContent = `${sprint.name} – ${sprint.risk_level.toUpperCase()} risk`;
+    riskTitle.textContent = `${sprint.name} – ${sprint.risk_level.toUpperCase()} risk`;
 
-            tr.appendChild(nameTd);
-            tr.appendChild(statusTd);
-            tr.appendChild(projectTd);
-            tr.appendChild(lastTd);
-    reportText.textContent =
+    riskText.textContent =
       `Risk score ${sprint.risk_score.toFixed(2)}. ` +
       `This sprint runs from ${new Date(sprint.start_date).toLocaleDateString()} ` +
       `to ${new Date(sprint.end_date).toLocaleDateString()}.`;
+
+    renderIssues(sprint.issues);
   }
+
+  function renderIssues(issues) {
+    issuesList.innerHTML = "";
+
+    if (!issues || issues.length === 0) {
+      issuesList.innerHTML = '<p class="empty-state">No issues in this sprint yet.</p>';
+      return;
+    }
+
+    issues.forEach(issue => {
+      const row = document.createElement("div");
+      row.className = "issue-row";
+
+      const title = document.createElement("div");
+      title.className = "issue-title";
+      title.textContent = issue.title;
+
+      const meta = document.createElement("div");
+      meta.className = "issue-meta";
+      meta.textContent = `${issue.status} · ${issue.assignee || "Unassigned"}${issue.is_blocker ? " · BLOCKER" : ""}`;
+
+      row.appendChild(title);
+      row.appendChild(meta);
+
+      issuesList.appendChild(row);
+    });
+  }
+
+  // ====== ISSUE MODAL HANDLERS ======
+
+  addIssueBtn.addEventListener("click", () => {
+    if (!currentSprintId) {
+      alert("Please select a sprint first.");
+      return;
+    }
+    issueModal.classList.remove("hidden");
+  });
+
+  issueCancelBtn.addEventListener("click", () => {
+    issueModal.classList.add("hidden");
+  });
+
+  issueCreateBtn.addEventListener("click", async () => {
+    if (!currentSprintId) {
+      alert("No sprint selected.");
+      return;
+    }
+
+    const title = issueTitleInput.value.trim();
+    const status = issueStatusSelect.value;
+    const assignee = issueAssigneeInput.value.trim();
+    const is_blocker = issueBlockerCheckbox.checked;
+
+    if (!title) {
+      alert("Please enter a title.");
+      return;
+    }
+
+    const payload = {
+      title,
+      status,
+      assignee: assignee || null,
+      is_blocker
+    };
+
+    const res = await fetch(`/sprints/${currentSprintId}/issues`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      console.error("Failed to create issue:", err);
+      alert("Failed to create issue.");
+      return;
+    }
+
+    issueModal.classList.add("hidden");
+    issueTitleInput.value = "";
+    issueAssigneeInput.value = "";
+    issueBlockerCheckbox.checked = false;
+
+    await selectSprint(currentSprintId);
+  });
+
   // ====== CREATE SPRINT MODAL ======
 
   createSprintBtn.addEventListener("click", () => {
@@ -508,7 +706,6 @@
       return;
     }
 
-    // ensure projects for that company are loaded
     loadProjectsForCompany(companyId);
     modal.classList.remove("hidden");
   });
@@ -558,7 +755,7 @@
     modalStartDate.value = "";
     modalEndDate.value = "";
 
-    await loadSprints();  // refresh list
+    await loadSprints();
   });
 
   // ====== FILTER CHANGE HANDLERS ======
