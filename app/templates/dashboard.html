@@ -520,10 +520,6 @@
   const issueCancelBtn = document.getElementById("issue-cancel-btn");
   const issueCreateBtn = document.getElementById("issue-create-btn");
 
-  const riskTitle = document.getElementById("risk-title");
-  const riskText = document.getElementById("risk-text");
-
-
   // ====== LOAD COMPANIES & PROJECTS ======
 
   async function loadCompanies() {
@@ -597,17 +593,24 @@
   }
 
   async function selectSprint(sprintId) {
-    const res = await fetch(`/sprints/${sprintId}`);
-    const sprint = await res.json();
+    currentSprintId = sprintId;
 
-    currentSprintId = sprint.id;
+    // 1) Get full sprint (including issues) for list rendering
+    const sprintRes = await fetch(`/sprints/${sprintId}`);
+    const sprint = await sprintRes.json();
 
-    riskTitle.textContent = `${sprint.name} – ${sprint.risk_level.toUpperCase()} risk`;
+    // 2) Get AI-style risk explanation
+    const riskRes = await fetch(`/sprints/${sprintId}/risk`);
+    const risk = await riskRes.json();
 
-    riskText.textContent =
-      `Risk score ${sprint.risk_score.toFixed(2)}. ` +
-      `This sprint runs from ${new Date(sprint.start_date).toLocaleDateString()} ` +
-      `to ${new Date(sprint.end_date).toLocaleDateString()}.`;
+    // Update title + text from risk API
+    const reportTitle = document.getElementById("risk-title");
+    const reportText = document.getElementById("risk-text");
+
+    reportTitle.textContent = `${risk.summary}`;
+    reportText.textContent = risk.details;
+
+    // Render issues under the sprint (from /sprints/{id})
 
     renderIssues(sprint.issues);
   }
