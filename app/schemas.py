@@ -4,6 +4,38 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 
 
+# ---------- Company & Project Schemas ----------
+
+class CompanyBase(BaseModel):
+    name: str
+
+
+class CompanyCreate(CompanyBase):
+    pass
+
+
+class Company(CompanyBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectBase(BaseModel):
+    name: str
+    company_id: int
+
+
+class ProjectCreate(ProjectBase):
+    pass
+
+
+class Project(ProjectBase):
+    id: int
+    jira_key: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ---------- Issue Schemas ----------
 
 class IssueBase(BaseModel):
