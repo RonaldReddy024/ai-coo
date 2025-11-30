@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from .database import Base, engine
-from .routers import integrations, sprints
+from .routers import integrations, sprints, companies
 from . import models  # register models
 
 Base.metadata.create_all(bind=engine)
@@ -13,6 +13,7 @@ app = FastAPI(title="WorkYodha AI COO for SaaS")
 # Routers
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
+app.include_router(companies.router)
 
 templates = Jinja2Templates(directory="app/templates")
 
