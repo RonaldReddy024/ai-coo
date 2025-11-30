@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -9,8 +10,8 @@ from ..schemas import (
     SprintWithIssues,
     SprintCreate,
     Sprint as SprintSchema,
-    IssueCreate,
     Issue as IssueSchema,
+    IssueCreate,
 )
 
 router = APIRouter()
@@ -103,26 +104,46 @@ def list_sprints(
 
 # ---------- Issues ----------
 
+@router.get("/{sprint_id}/issues", response_model=List[IssueSchema])
+def list_issues_for_sprint(sprint_id: int, db: Session = Depends(get_db)):
+    sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+
+    return sprint.issues
+
+
 @router.post("/{sprint_id}/issues", response_model=IssueSchema)
 def create_issue_for_sprint(
-    sprint_id: int, payload: IssueCreate, db: Session = Depends(get_db)
+    sprint_id: int,
+    payload: IssueCreate,
+    db: Session = Depends(get_db),
 ):
     sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
 
+    # Simple auto key generation: SPR-<sprint_id>-<n>
+    count = db.query(models.Issue).filter_by(sprint_id=sprint_id).count()
+    key = f"SPR-{sprint_id}-{count + 1}"
+
     issue = models.Issue(
         sprint_id=sprint_id,
-        key=payload.key,
+        key=key,
         title=payload.title,
         status=payload.status,
         assignee=payload.assignee,
         is_blocker=payload.is_blocker,
     )
+    
     db.add(issue)
+
+    # Recompute risk whenever we add an issue
+    compute_risk_for_sprint(sprint)
     db.commit()
     db.refresh(issue)
-
+    db.refresh(sprint)
+    
     return issue
 
 
