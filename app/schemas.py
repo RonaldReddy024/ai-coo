@@ -66,6 +66,16 @@ class SprintWithIssues(Sprint):
     issues: List["Issue"] = []
 
 
+class SprintRiskReport(BaseModel):
+    sprint_id: int
+    risk_level: str
+    risk_score: float
+    summary: str
+    details: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ---------- Issue Schemas ----------
 
 class IssueBase(BaseModel):
