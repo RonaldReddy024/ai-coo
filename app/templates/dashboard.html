@@ -260,6 +260,19 @@
             background: #0b1224;
         }
 
+        .issue-item {
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            background: #f7f7f7;
+            transition: background 0.2s;
+        }
+
+        .issue-item:hover {
+            background: #ececec;
+        }
+
         .issue-row {
             padding: 8px 10px;
             border-bottom: 1px solid #1f2937;
@@ -621,30 +634,34 @@
   }
 
   function renderIssues(issues) {
+    const issuesList = document.getElementById("issues-list");
     issuesList.innerHTML = "";
 
     if (!issues || issues.length === 0) {
-      issuesList.innerHTML = '<p class="empty-state">No issues in this sprint yet.</p>';
-      return;
+        issuesList.innerHTML = "<p style='color:#555;'>No issues yet for this sprint.</p>";
+        return;
     }
 
-    issues.forEach(issue => {
-      const row = document.createElement("div");
-      row.className = "issue-row";
+    issues.forEach((issue) => {
+        const div = document.createElement("div");
+        div.className = "issue-item";
 
-      const title = document.createElement("div");
-      title.className = "issue-title";
-      title.textContent = issue.title;
+        div.innerHTML = `
+            <strong>${issue.key}</strong> – ${issue.title}<br>
+            <small>Status: ${issue.status}</small>
+        `;
 
-      const meta = document.createElement("div");
-      meta.className = "issue-meta";
-      meta.textContent = `${issue.status} · ${issue.assignee || "Unassigned"}${issue.is_blocker ? " · BLOCKER" : ""}`;
+        // CLICK HANDLER FOR EACH ISSUE
+        div.onclick = () => {
+            selectIssue(issue.id);
+        };
 
-      row.appendChild(title);
-      row.appendChild(meta);
-
-      issuesList.appendChild(row);
+        issuesList.appendChild(div);
     });
+  }
+
+  function selectIssue(issueId) {
+    alert("Clicked issue " + issueId);
   }
 
   // ====== ISSUE MODAL HANDLERS ======
