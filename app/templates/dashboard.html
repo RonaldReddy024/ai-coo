@@ -225,17 +225,21 @@
 
         /* Modal */
 
-        .modal-backdrop {
+        .modal {
             position: fixed;
             inset: 0;
             background: rgba(15, 23, 42, 0.8);
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
             z-index: 50;
         }
 
-        .modal {
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-content {
             width: 100%;
             max-width: 420px;
             background: #020617;
@@ -245,40 +249,17 @@
             box-sizing: border-box;
         }
 
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .modal-title {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .modal-close {
-            background: transparent;
-            border: none;
-            color: #9ca3af;
-            cursor: pointer;
-            font-size: 18px;
-        }
-
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-label {
+        .modal-content label {
+            display: block;
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.08em;
             color: #9ca3af;
             margin-bottom: 4px;
-            display: block;
         }
 
-        .form-input, .form-select {
+        .modal-content input,
+        .modal-content select {
             width: 100%;
             padding: 8px 10px;
             border-radius: 10px;
@@ -287,14 +268,17 @@
             color: #e5e7eb;
             font-size: 13px;
             box-sizing: border-box;
+            margin-bottom: 12px;
         }
 
-        .form-input:focus, .form-select:focus {
+        .modal-content input:focus,
+        .modal-content select:focus {
             outline: none;
             border-color: #6366f1;
         }
 
         .form-actions {
+        .modal-actions {
             display: flex;
             justify-content: flex-end;
             gap: 8px;
@@ -313,6 +297,21 @@
 
         .button-secondary:hover {
             background: #111827;
+        }
+
+        .sprint-row {
+            padding: 12px 14px;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            background: #020617;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .sprint-row:hover {
+            background: #111827;
+            border-color: #374151;
         }
     </style>
 </head>
@@ -344,25 +343,7 @@
         </div>
 
         <h2>Sprints</h2>
-        <div id="sprint-table-container">
-            <div class="empty-state" id="no-sprints-state" style="display: none;">
-                No sprints found yet. Create a sprint via the button above or via the API, then refresh this page.
-            </div>
-
-            <table id="sprint-table" style="display: none;">
-                <thead>
-                <tr>
-                    <th style="width: 40%;">Sprint</th>
-                    <th>Project</th>
-                    <th>Risk</th>
-                    <th>Last Checked</th>
-                </tr>
-                </thead>
-                <tbody id="sprint-tbody">
-                <!-- Rows injected by JS -->
-                </tbody>
-            </table>
-        </div>
+        <div id="sprint-list" aria-live="polite"></div>
     </div>
 
     <!-- RIGHT: Risk details -->
@@ -372,324 +353,229 @@
             <div id="risk-title" class="risk-title">
                 Select a sprint to see details
             </div>
-            <div id="risk-score" class="risk-score" style="display:none;"></div>
-            <div id="risk-badges" style="margin-bottom: 12px; display:none;">
-                <span class="badge" id="risk-level-badge"></span>
-            </div>
-            <div id="risk-explanation" class="risk-explanation">
+            <div id="risk-text" class="risk-explanation">
                 This panel shows a natural-language explanation of why a sprint is considered low, medium, or high risk,
                 including open issues, blockers, and time remaining.
             </div>
-            <div id="risk-meta" class="muted" style="display:none;"></div>
         </div>
     </div>
 </div>
 
 <!-- Create Sprint Modal -->
-<div id="create-sprint-modal" class="modal-backdrop">
-    <div class="modal">
-        <div class="modal-header">
-            <div class="modal-title">Create new sprint</div>
-            <button class="modal-close" id="close-modal-btn">&times;</button>
-        </div>
-        <form id="create-sprint-form">
-            <div class="form-group">
-                <label class="form-label" for="modal-project">Project</label>
-                <select id="modal-project" class="form-select" required>
-                    <option value="">Select a project</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="modal-name">Sprint name</label>
-                <input id="modal-name" class="form-input" type="text" required placeholder="e.g. Sprint 12 – Checkout revamp">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="modal-start">Start date</label>
-                <input id="modal-start" class="form-input" type="datetime-local">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="modal-end">End date</label>
-                <input id="modal-end" class="form-input" type="datetime-local">
-            </div>
-            <div class="form-actions">
-                <button type="button" class="button-secondary" id="cancel-modal-btn">Cancel</button>
-                <button type="submit" class="button-primary">Create sprint</button>
-            </div>
-        </form>
+<div id="create-sprint-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>Create new sprint</h2>
+
+    <!-- PROJECT -->
+    <label for="modal-project-select">Project</label>
+    <select id="modal-project-select">
+      <option value="">Select a project</option>
+    </select>
+
+    <!-- NAME -->
+    <label for="modal-sprint-name">Sprint name</label>
+    <input id="modal-sprint-name" type="text" placeholder="e.g. Sprint 12 – Checkout revamp">
+
+    <!-- START DATE -->
+    <label for="modal-start-date">Start date</label>
+    <input id="modal-start-date" type="date">
+
+    <!-- END DATE -->
+    <label for="modal-end-date">End date</label>
+    <input id="modal-end-date" type="date">
+
+    <div class="modal-actions">
+      <button id="modal-cancel-btn" class="button-secondary">Cancel</button>
+      <button id="modal-create-btn" class="button-primary">Create sprint</button>
     </div>
 </div>
 
 <script>
-    const API_BASE = ""; // same origin
+  const companyFilter = document.getElementById("company-filter");
+  const projectFilter = document.getElementById("project-filter");
+  const sprintList = document.getElementById("sprint-list");
 
-    let filterData = {
-        companies: [],
-        projects: []
-    };
+  const createSprintBtn = document.getElementById("create-sprint-btn");
+  const modal = document.getElementById("create-sprint-modal");
+  const modalProjectSelect = document.getElementById("modal-project-select");
+  const modalSprintName = document.getElementById("modal-sprint-name");
+  const modalStartDate = document.getElementById("modal-start-date");
+  const modalEndDate = document.getElementById("modal-end-date");
+  const modalCancelBtn = document.getElementById("modal-cancel-btn");
+  const modalCreateBtn = document.getElementById("modal-create-btn");
 
-    let selectedCompanyId = "";
-    let selectedProjectId = "";
-    let currentSelectedRow = null;
+  // ====== LOAD COMPANIES & PROJECTS ======
 
-    async function fetchJSON(url, options) {
-        const res = await fetch(url, options);
-        if (!res.ok) {
-            throw new Error(`Request failed: ${res.status}`);
-        }
-        return await res.json();
+  async function loadCompanies() {
+    const res = await fetch("/companies");
+    const companies = await res.json();
+
+    // top filter
+    companyFilter.innerHTML = '<option value="">All companies</option>';
+    companies.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name;
+      companyFilter.appendChild(opt);
+    });
+  }
+
+  async function loadProjectsForCompany(companyId) {
+    // clear selects if no company chosen
+    if (!companyId) {
+      projectFilter.innerHTML = '<option value="">All projects</option>';
+      modalProjectSelect.innerHTML = '<option value="">Select a project</option>';
+      return;
     }
 
-    function formatDate(dateString) {
-        if (!dateString) return "—";
-        const d = new Date(dateString);
-        if (isNaN(d)) return dateString;
-        return d.toLocaleString();
+    const res = await fetch(`/companies/${companyId}/projects`);
+    const projects = await res.json();
+
+    // top PROJECT filter
+    projectFilter.innerHTML = '<option value="">All projects</option>';
+    projects.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name;
+      projectFilter.appendChild(opt);
+    });
+
+    // MODAL project select
+    modalProjectSelect.innerHTML = '<option value="">Select a project</option>';
+    projects.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name;
+      modalProjectSelect.appendChild(opt);
+    });
+  }
+
+  // ====== LOAD SPRINTS FOR CURRENT FILTERS ======
+
+  async function loadSprints() {
+    const companyId = companyFilter.value;
+    const projectId = projectFilter.value;
+
+    let url = "/sprints";
+    const params = [];
+    if (companyId) params.push(`company_id=${companyId}`);
+    if (projectId) params.push(`project_id=${projectId}`);
+    if (params.length) url += "?" + params.join("&");
+
+    const res = await fetch(url);
+    const sprints = await res.json();
+
+    sprintList.innerHTML = "";
+    if (!sprints.length) {
+      sprintList.innerHTML = "<div class='empty-state'>No sprints found</div>";
+      return;
     }
 
-    function createRiskBadge(level) {
-        const span = document.createElement("span");
-        span.classList.add("badge");
-        const lv = (level || "").toLowerCase();
-        if (lv === "high") {
-            span.classList.add("badge-high");
-            span.textContent = "HIGH";
-        } else if (lv === "medium") {
-            span.classList.add("badge-medium");
-            span.textContent = "MEDIUM";
-        } else {
-            span.classList.add("badge-low");
-            span.textContent = "LOW";
-        }
-        return span;
-    }
+    sprints.forEach(s => {
+      const row = document.createElement("div");
+      row.className = "sprint-row";
+      row.textContent = s.name;
+      row.addEventListener("click", () => selectSprint(s.id));
+      sprintList.appendChild(row);
+    });
+  }
 
-    function projectNameById(id) {
-        const p = filterData.projects.find(p => p.id === id);
-        return p ? p.name : "—";
-    }
+  async function selectSprint(sprintId) {
+    const res = await fetch(`/sprints/${sprintId}`);
+    const sprint = await res.json();
 
-    async function loadFilters() {
-        try {
-            const data = await fetchJSON(`${API_BASE}/sprints/filters`);
-            filterData = data;
+    // update right-hand AI risk report
+    const reportTitle = document.getElementById("risk-title");
+    const reportText = document.getElementById("risk-text");
 
-            const companySelect = document.getElementById("company-filter");
-            const projectSelect = document.getElementById("project-filter");
-            const modalProjectSelect = document.getElementById("modal-project");
-
-            // reset
-            companySelect.innerHTML = `<option value="">All companies</option>`;
-            projectSelect.innerHTML = `<option value="">All projects</option>`;
-            modalProjectSelect.innerHTML = `<option value="">Select a project</option>`;
-
-            data.companies.forEach(c => {
-                const opt = document.createElement("option");
-                opt.value = c.id;
-                opt.textContent = c.name;
-                companySelect.appendChild(opt);
-            });
-
-            data.projects.forEach(p => {
-                const opt = document.createElement("option");
-                opt.value = p.id;
-                opt.textContent = p.name;
-                projectSelect.appendChild(opt);
-
-                const opt2 = document.createElement("option");
-                opt2.value = p.id;
-                opt2.textContent = p.name;
-                modalProjectSelect.appendChild(opt2);
-            });
-
-        } catch (e) {
-            console.error("Failed to load filters", e);
-        }
-    }
-
-    async function loadSprints() {
-        const tbody = document.getElementById("sprint-tbody");
-        const table = document.getElementById("sprint-table");
-        const emptyState = document.getElementById("no-sprints-state");
-
-        tbody.innerHTML = "";
-        if (currentSelectedRow) {
-            currentSelectedRow.classList.remove("selected-row");
-            currentSelectedRow = null;
-        }
-
-        let url = `${API_BASE}/sprints`;
-        const params = [];
-        if (selectedCompanyId) params.push(`company_id=${selectedCompanyId}`);
-        if (selectedProjectId) params.push(`project_id=${selectedProjectId}`);
-        if (params.length > 0) url += `?${params.join("&")}`;
-        let sprints = [];
-        try {
-            sprints = await fetchJSON(url);
-        } catch (e) {
-            console.error("Failed to load sprints", e);
-        }
-
-        if (!sprints || sprints.length === 0) {
-            table.style.display = "none";
-            emptyState.style.display = "block";
-            return;
-        }
-
-        table.style.display = "table";
-        emptyState.style.display = "none";
-
-        sprints.forEach((sprint) => {
-            const tr = document.createElement("tr");
-            tr.dataset.id = sprint.id;
-
-            const nameTd = document.createElement("td");
-            nameTd.textContent = sprint.name;
-
-            const projectTd = document.createElement("td");
-            projectTd.textContent = projectNameById(sprint.project_id);
-
-            const riskTd = document.createElement("td");
-            riskTd.appendChild(createRiskBadge(sprint.risk_level));
-
-            const lastTd = document.createElement("td");
-            lastTd.textContent = formatDate(sprint.last_evaluated_at);
+    reportTitle.textContent = `${sprint.name} – ${sprint.risk_level.toUpperCase()} risk`;
 
             tr.appendChild(nameTd);
             tr.appendChild(statusTd);
             tr.appendChild(projectTd);
             tr.appendChild(lastTd);
+    reportText.textContent =
+      `Risk score ${sprint.risk_score.toFixed(2)}. ` +
+      `This sprint runs from ${new Date(sprint.start_date).toLocaleDateString()} ` +
+      `to ${new Date(sprint.end_date).toLocaleDateString()}.`;
+  }
+  // ====== CREATE SPRINT MODAL ======
 
-            tr.addEventListener("click", () => {
-                if (currentSelectedRow) {
-                    currentSelectedRow.classList.remove("selected-row");
-                }
-                tr.classList.add("selected-row");
-                currentSelectedRow = tr;
-                loadRiskDetails(sprint.id);
-            });
-
-            tbody.appendChild(tr);
-        });
+  createSprintBtn.addEventListener("click", () => {
+    const companyId = companyFilter.value;
+    if (!companyId) {
+      alert("Please select a company first.");
+      return;
     }
 
-    async function loadRiskDetails(sprintId) {
-        const titleEl = document.getElementById("risk-title");
-        const scoreEl = document.getElementById("risk-score");
-        const badgesEl = document.getElementById("risk-badges");
-        const levelBadgeEl = document.getElementById("risk-level-badge");
-        const explanationEl = document.getElementById("risk-explanation");
-        const metaEl = document.getElementById("risk-meta");
+    // ensure projects for that company are loaded
+    loadProjectsForCompany(companyId);
+    modal.classList.remove("hidden");
+  });
 
-        
-        titleEl.textContent = "Loading risk report…";
-        scoreEl.style.display = "none";
-        badgesEl.style.display = "none";
-        metaEl.style.display = "none";
+  modalCancelBtn.addEventListener("click", () => {
+    modal.classList.add("hidden");
+  });
 
-        try {
-            const data = await fetchJSON(`${API_BASE}/sprints/${sprintId}/risk`);
+  modalCreateBtn.addEventListener("click", async () => {
+    const projectId = parseInt(modalProjectSelect.value, 10);
+    const name = modalSprintName.value.trim();
+    const startDate = modalStartDate.value;
+    const endDate = modalEndDate.value;
 
-            titleEl.textContent = data.name || `Sprint #${sprintId}`;
-            scoreEl.textContent = (data.risk_score ?? 0).toFixed(2);
-            scoreEl.style.display = "block";
-
-            levelBadgeEl.className = "badge";
-            const lv = (data.risk_level || "").toLowerCase();
-            if (lv === "high") {
-                levelBadgeEl.classList.add("badge-high");
-                levelBadgeEl.textContent = "HIGH RISK";
-            } else if (lv === "medium") {
-                levelBadgeEl.classList.add("badge-medium");
-                levelBadgeEl.textContent = "MEDIUM RISK";
-            } else {
-                levelBadgeEl.classList.add("badge-low");
-                levelBadgeEl.textContent = "LOW RISK";
-            }
-            badgesEl.style.display = "block";
-
-            explanationEl.textContent = data.explanation || "No explanation provided.";
-
-            metaEl.innerHTML = `
-                <span class="pill">Open issues: <span>${data.open_issues ?? "?"}</span></span>
-                <span class="pill">Total issues: <span>${data.total_issues ?? "?"}</span></span>
-                <span class="pill">Blockers: <span>${data.blockers ?? "?"}</span></span><br />
-                Last evaluated: ${formatDate(data.last_evaluated_at)}
-            `;
-            metaEl.style.display = "block";
-
-        } catch (e) {
-            console.error("Failed to load risk details", e);
-            titleEl.textContent = "Error loading risk report";
-            explanationEl.textContent = "Could not retrieve risk information for this sprint.";
-        }
+    if (!projectId) {
+      alert("Please select a project.");
+      return;
     }
 
-    function openCreateModal() {
-        document.getElementById("create-sprint-modal").style.display = "flex";
+    if (!name) {
+      alert("Please enter a sprint name.");
+      return;
     }
 
-    function closeCreateModal() {
-        document.getElementById("create-sprint-modal").style.display = "none";
-        document.getElementById("create-sprint-form").reset();
-    }
-
-    async function handleCreateSprintSubmit(event) {
-        event.preventDefault();
-        const projectId = document.getElementById("modal-project").value;
-        const name = document.getElementById("modal-name").value.trim();
-        const start = document.getElementById("modal-start").value;
-        const end = document.getElementById("modal-end").value;
-
-        if (!projectId || !name) {
-            alert("Please select a project and enter a sprint name.");
-            return;
-        }
-
-        const payload = {
-            project_id: Number(projectId),
-            name: name,
-            start_date: start || null,
-            end_date: end || null
-        };
-
-        try {
-            await fetchJSON(`${API_BASE}/sprints`, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(payload)
-            });
-            closeCreateModal();
-            await loadSprints();
-        } catch (e) {
-            console.error("Failed to create sprint", e);
-            alert("Failed to create sprint. Check console for details.");
-        }
-    }
-
-    // Event wiring
-    document.getElementById("company-filter").addEventListener("change", (e) => {
-        selectedCompanyId = e.target.value;
-        // reset project filter when company changes
-        selectedProjectId = "";
-        document.getElementById("project-filter").value = "";
-        loadSprints();
+    const payload = {
+      name: name,
+      project_id: projectId,
+      start_date: startDate ? new Date(startDate).toISOString() : undefined,
+      end_date: endDate ? new Date(endDate).toISOString() : undefined
+    };
+      
+    const res = await fetch("/sprints/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
 
-    document.getElementById("project-filter").addEventListener("change", (e) => {
-        selectedProjectId = e.target.value;
-        loadSprints();
-    });
+    if (!res.ok) {
+      const err = await res.json();
+      console.error("Error creating sprint:", err);
+      alert("Failed to create sprint. Check console for details.");
+      return;
+    }
 
-    document.getElementById("create-sprint-btn").addEventListener("click", openCreateModal);
-    document.getElementById("close-modal-btn").addEventListener("click", closeCreateModal);
-    document.getElementById("cancel-modal-btn").addEventListener("click", closeCreateModal);
-    document.getElementById("create-sprint-form").addEventListener("submit", handleCreateSprintSubmit);
+    modal.classList.add("hidden");
+    modalSprintName.value = "";
+    modalStartDate.value = "";
+    modalEndDate.value = "";
 
-    // Initial load
-    (async function init() {
-        await loadFilters();
-        await loadSprints();
-    })();
+    await loadSprints();  // refresh list
+  });
+
+  // ====== FILTER CHANGE HANDLERS ======
+
+  companyFilter.addEventListener("change", async (e) => {
+    const companyId = e.target.value;
+    await loadProjectsForCompany(companyId);
+    await loadSprints();
+  });
+
+  projectFilter.addEventListener("change", loadSprints);
+
+  // ====== INITIALISE DASHBOARD ======
+  (async function init() {
+    await loadCompanies();
+    await loadSprints();
+  })();
 </script>
 </body>
 </html>
