@@ -175,6 +175,11 @@
             margin-left: 4px;
         }
 
+        /* Pointer anywhere inside sprint list */
+        #sprint-list * {
+            cursor: pointer;
+        }
+
         .card {
             border-radius: 16px;
             background: #020617;
@@ -600,6 +605,9 @@
       const row = document.createElement("div");
       row.className = "sprint-row";
       row.textContent = s.name;
+      // ⭐ FORCE pointer cursor on this element
+      row.style.cursor = "pointer";
+
       row.addEventListener("click", () => selectSprint(s.id));
       sprintList.appendChild(row);
     });
