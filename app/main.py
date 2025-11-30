@@ -4,11 +4,8 @@ from fastapi.templating import Jinja2Templates
 
 from .database import Base, engine
 from .routers import integrations, sprints
+from . import models  # register models
 
-# Import models so they are registered with SQLAlchemy
-from . import models
-
-# Create all tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI COO for SaaS")
@@ -17,16 +14,28 @@ app = FastAPI(title="AI COO for SaaS")
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
 
-# Templates
 templates = Jinja2Templates(directory="app/templates")
 
 
-@app.get("/", response_model=dict)
-def read_root():
-    return {"message": "AI COO backend running"}
+# Landing page
+@app.get("/", response_class=HTMLResponse)
+async def landing(request: Request):
+    return templates.TemplateResponse("landing.html", {"request": request})
 
 
+# Fake login page (no real auth yet)
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+# Dashboard
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    # We don't fetch data here; the JS on the page will call /sprints and /sprints/{id}/risk
     return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+# Optional: simple health endpoint
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "app": "AI COO backend running"}
