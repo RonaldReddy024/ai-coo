@@ -85,6 +85,13 @@ def list_sprints(
     if project_id is not None:
         query = query.filter(models.Sprint.project_id == project_id)
     sprints = query.all()
+
+    # Recompute risk for each sprint to ensure freshness
+    for sprint in sprints:
+        _ = sprint.issues  # ensure issues are loaded
+        compute_risk_for_sprint(sprint)
+    db.commit()
+
     return sprints
 
 
