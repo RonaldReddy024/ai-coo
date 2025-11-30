@@ -394,6 +394,7 @@
             opacity: 0.9;        /* or remove this line if you don't want any visual change */
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="layout">
@@ -445,6 +446,16 @@
             <div id="issues-list" class="issues-list">
               <p class="empty-state">No sprint selected.</p>
             </div>
+          </div>
+
+          <hr />
+
+          <div id="charts-section">
+            <h3>Burndown</h3>
+            <canvas id="burndown-chart" height="120"></canvas>
+
+            <h3 style="margin-top: 24px;">Velocity (done issues / day)</h3>
+            <canvas id="velocity-chart" height="120"></canvas>
           </div>
         </div>
     </div>
@@ -526,7 +537,9 @@
   const modalCreateBtn = document.getElementById("modal-create-btn");
 
   let currentSprintId = null;
-
+  let burndownChart = null;
+  let velocityChart = null;
+    
   const issuesList = document.getElementById("issues-list");
   const addIssueBtn = document.getElementById("add-issue-btn");
 
@@ -616,29 +629,35 @@
   async function selectSprint(sprintId) {
     currentSprintId = sprintId;
 
-    // 1) Get full sprint (including issues) for list rendering
+    // 1) Get full sprint (including issues) for list + burndown
     const sprintRes = await fetch(`/sprints/${sprintId}`);
-    const sprint = await sprintRes.json();
 
-    // 2) Get AI-style risk explanation
-    const riskRes = await fetch(`/sprints/${sprintId}/risk`);
     if (!sprintRes.ok) {
       console.error("Failed to fetch sprint", await sprintRes.text());
       alert("Failed to load sprint details.");
       return;
     }
-    const risk = await riskRes.json();
+    const sprint = await sprintRes.json();
 
-    // Update title + text from risk API
+    // 2) Get AI-style risk explanation
+    const riskRes = await fetch(`/sprints/risk/${sprintId}`);
     const reportTitle = document.getElementById("risk-title");
     const reportText = document.getElementById("risk-text");
 
-    reportTitle.textContent = `${risk.summary}`;
-    reportText.textContent = risk.details;
-
-    // Render issues under the sprint (from /sprints/{id})
-
+    if (!riskRes.ok) {
+      console.error("Failed to fetch risk", await riskRes.text());
+      reportTitle.textContent = `${sprint.name} – ${sprint.risk_level.toUpperCase()} risk`;
+      reportText.textContent = `Risk score ${sprint.risk_score.toFixed(2)}.`;
+    } else {
+      const risk = await riskRes.json();
+      reportTitle.textContent = risk.summary;
+      reportText.textContent = risk.details;
+    }
+    // 3) Render issues
     renderIssues(sprint.issues);
+
+    // 4) Update burndown chart for this sprint
+    updateBurndownChart(sprint);
   }
 
   function renderIssues(issues) {
@@ -673,9 +692,175 @@
     });
   }
 
+  function updateBurndownChart(sprint) {
+    const ctx = document.getElementById("burndown-chart").getContext("2d");
+
+    const issues = sprint.issues || [];
+    const totalIssues = issues.length;
+
+    if (!totalIssues) {
+      if (burndownChart) {
+        burndownChart.destroy();
+        burndownChart = null;
+      }
+      return;
+    }
+
+    const doneStatuses = ["done", "resolved", "closed"];
+
+    const start = new Date(sprint.start_date);
+    const end = new Date(sprint.end_date);
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const totalDays = Math.max(1, Math.round((end - start) / msPerDay));
+    const labels = [];
+    const ideal = [];
+    const actual = [];
+
+    for (let i = 0; i <= totalDays; i++) {
+      const currentDate = new Date(start.getTime() + i * msPerDay);
+      labels.push(currentDate.toLocaleDateString());
+
+      const idealRemaining = totalIssues - (totalIssues * i) / totalDays;
+      ideal.push(idealRemaining);
+
+      let doneCount = 0;
+      issues.forEach((issue) => {
+        const updated = new Date(issue.updated_at);
+        const isDone = doneStatuses.includes(issue.status.toLowerCase());
+        if (isDone && updated <= currentDate) {
+          doneCount += 1;
+        }
+      });
+      const actualRemaining = totalIssues - doneCount;
+      actual.push(actualRemaining);
+    }
+
+    if (burndownChart) {
+      burndownChart.destroy();
+    }
+
+    burndownChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Ideal remaining",
+            data: ideal,
+            borderWidth: 2,
+            tension: 0.2,
+          },
+          {
+            label: "Actual remaining",
+            data: actual,
+            borderWidth: 2,
+            borderDash: [4, 4],
+            tension: 0.2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            display: true,
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1,
+            },
+          },
+        },
+      },
+    });
+  }
+
   function selectIssue(issueId) {
     console.log("Clicked issue", issueId);
     // we’ll turn this into an issue detail panel later
+  }
+
+  async function updateVelocityChart() {
+    const companyId = companyFilter.value;
+    const projectId = projectFilter.value;
+
+    let url = "/sprints/with_issues";
+    const params = [];
+    if (companyId) params.push(`company_id=${companyId}`);
+    if (projectId) params.push(`project_id=${projectId}`);
+    if (params.length) url += "?" + params.join("&");
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("Failed to fetch sprints for velocity chart", await res.text());
+      return;
+    }
+
+    const sprints = await res.json();
+    if (!sprints.length) {
+      if (velocityChart) {
+        velocityChart.destroy();
+        velocityChart = null;
+      }
+      return;
+    }
+
+    const labels = [];
+    const velocities = [];
+
+    sprints.forEach((s) => {
+      const issues = s.issues || [];
+      const doneStatuses = ["done", "resolved", "closed"];
+
+      const doneCount = issues.filter((i) =>
+        doneStatuses.includes(i.status.toLowerCase())
+      ).length;
+
+      const start = new Date(s.start_date);
+      const end = new Date(s.end_date);
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const days = Math.max(1, Math.round((end - start) / msPerDay));
+      const velocity = doneCount / days;
+
+      labels.push(s.name);
+      velocities.push(velocity);
+    });
+
+    const ctx = document.getElementById("velocity-chart").getContext("2d");
+
+    if (velocityChart) {
+      velocityChart.destroy();
+    }
+
+    velocityChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Done issues per day",
+            data: velocities,
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            display: true,
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
+        },
+      },
+    });
   }
 
   // ====== ISSUE MODAL HANDLERS ======
@@ -795,6 +980,7 @@
     modalEndDate.value = "";
 
     await loadSprints();
+    await updateVelocityChart();
   });
 
   // ====== FILTER CHANGE HANDLERS ======
@@ -803,14 +989,19 @@
     const companyId = e.target.value;
     await loadProjectsForCompany(companyId);
     await loadSprints();
+    await updateVelocityChart();
   });
 
-  projectFilter.addEventListener("change", loadSprints);
+  projectFilter.addEventListener("change", async () => {
+    await loadSprints();
+    await updateVelocityChart();
+  });
 
   // ====== INITIALISE DASHBOARD ======
   (async function init() {
     await loadCompanies();
     await loadSprints();
+    await updateVelocityChart();
   })();
 </script>
 </body>
