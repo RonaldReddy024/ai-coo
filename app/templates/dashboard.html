@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI COO – Sprint Risk Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 2fr 1.3fr;
+            min-height: 100vh;
+        }
+
+        .panel {
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .panel-left {
+            border-right: 1px solid #1f2937;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        h2 {
+            margin: 24px 0 8px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            border-bottom: 1px solid #1f2937;
+        }
+
+        tr {
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        tr:nth-child(even) {
+            background: #020617;
+        }
+
+        tr:hover {
+            background: #111827;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-low {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .badge-medium {
+            background: rgba(234, 179, 8, 0.1);
+            color: #eab308;
+        }
+
+        .badge-high {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f97373;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #020617;
+            border: 1px solid #1f2937;
+            font-size: 11px;
+            color: #9ca3af;
+            margin-right: 8px;
+        }
+
+        .pill span {
+            font-weight: 600;
+            color: #e5e7eb;
+            margin-left: 4px;
+        }
+
+        .card {
+            border-radius: 16px;
+            background: #020617;
+            border: 1px solid #1f2937;
+            padding: 16px 18px;
+            box-sizing: border-box;
+        }
+
+        .risk-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .risk-score {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .risk-explanation {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #d1d5db;
+            white-space: pre-wrap;
+        }
+
+        .muted {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        .empty-state {
+            padding: 24px;
+            text-align: center;
+            border-radius: 16px;
+            background: #020617;
+            border: 1px dashed #374151;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .selected-row {
+            outline: 1px solid #6366f1;
+            outline-offset: -1px;
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <!-- LEFT: Sprint list -->
+    <div class="panel panel-left">
+        <h1>AI COO – Sprint Risks</h1>
+        <div class="subtitle">
+            Monitor sprint health across projects. Click any sprint to see a detailed AI risk explanation.
+        </div>
+
+        <h2>Sprints</h2>
+        <div id="sprint-table-container">
+            <div class="empty-state" id="no-sprints-state" style="display: none;">
+                No sprints found yet. Create sprints via the API, then refresh this page.
+            </div>
+
+            <table id="sprint-table" style="display: none;">
+                <thead>
+                <tr>
+                    <th style="width: 40%;">Sprint</th>
+                    <th>Status</th>
+                    <th>Risk</th>
+                    <th>Last Checked</th>
+                </tr>
+                </thead>
+                <tbody id="sprint-tbody">
+                <!-- Rows injected by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- RIGHT: Risk details -->
+    <div class="panel">
+        <h2>AI Risk Report</h2>
+        <div id="risk-card" class="card">
+            <div id="risk-title" class="risk-title">
+                Select a sprint to see details
+            </div>
+            <div id="risk-score" class="risk-score" style="display:none;"></div>
+            <div id="risk-badges" style="margin-bottom: 12px; display:none;">
+                <span class="badge" id="risk-level-badge"></span>
+            </div>
+            <div id="risk-explanation" class="risk-explanation">
+                This panel shows a natural-language explanation of why a sprint is considered low, medium, or high risk,
+                including open issues, blockers, and time remaining.
+            </div>
+            <div id="risk-meta" class="muted" style="display:none;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = ""; // same origin
+
+    async function fetchJSON(url) {
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`Request failed: ${res.status}`);
+        }
+        return await res.json();
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return "—";
+        const d = new Date(dateString);
+        if (isNaN(d)) return dateString;
+        return d.toLocaleString();
+    }
+
+    function createRiskBadge(level) {
+        const span = document.createElement("span");
+        span.classList.add("badge");
+        const lv = (level || "").toLowerCase();
+        if (lv === "high") {
+            span.classList.add("badge-high");
+            span.textContent = "HIGH";
+        } else if (lv === "medium") {
+            span.classList.add("badge-medium");
+            span.textContent = "MEDIUM";
+        } else {
+            span.classList.add("badge-low");
+            span.textContent = "LOW";
+        }
+        return span;
+    }
+
+    let currentSelectedRow = null;
+
+    async function loadSprints() {
+        const tbody = document.getElementById("sprint-tbody");
+        const table = document.getElementById("sprint-table");
+        const emptyState = document.getElementById("no-sprints-state");
+
+        tbody.innerHTML = "";
+
+        let sprints = [];
+        try {
+            sprints = await fetchJSON(`${API_BASE}/sprints`);
+        } catch (e) {
+            console.error("Failed to load sprints", e);
+        }
+
+        if (!sprints || sprints.length === 0) {
+            table.style.display = "none";
+            emptyState.style.display = "block";
+            return;
+        }
+
+        table.style.display = "table";
+        emptyState.style.display = "none";
+
+        sprints.forEach((sprint) => {
+            const tr = document.createElement("tr");
+            tr.dataset.id = sprint.id;
+
+            const nameTd = document.createElement("td");
+            nameTd.textContent = sprint.name;
+
+            const statusTd = document.createElement("td");
+            statusTd.textContent = sprint.status || "—";
+
+            const riskTd = document.createElement("td");
+            riskTd.appendChild(createRiskBadge(sprint.risk_level));
+
+            const lastTd = document.createElement("td");
+            lastTd.textContent = formatDate(sprint.last_evaluated_at);
+
+            tr.appendChild(nameTd);
+            tr.appendChild(statusTd);
+            tr.appendChild(riskTd);
+            tr.appendChild(lastTd);
+
+            tr.addEventListener("click", () => {
+                if (currentSelectedRow) {
+                    currentSelectedRow.classList.remove("selected-row");
+                }
+                tr.classList.add("selected-row");
+                currentSelectedRow = tr;
+                loadRiskDetails(sprint.id);
+            });
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function loadRiskDetails(sprintId) {
+        const titleEl = document.getElementById("risk-title");
+        const scoreEl = document.getElementById("risk-score");
+        const badgesEl = document.getElementById("risk-badges");
+        const levelBadgeEl = document.getElementById("risk-level-badge");
+        const explanationEl = document.getElementById("risk-explanation");
+        const metaEl = document.getElementById("risk-meta");
+
+        // reset state
+        titleEl.textContent = "Loading risk report…";
+        scoreEl.style.display = "none";
+        badgesEl.style.display = "none";
+        metaEl.style.display = "none";
+
+        try {
+            const data = await fetchJSON(`${API_BASE}/sprints/${sprintId}/risk`);
+
+            titleEl.textContent = data.name || `Sprint #${sprintId}`;
+            scoreEl.textContent = (data.risk_score ?? 0).toFixed(2);
+            scoreEl.style.display = "block";
+
+            // set badge
+            levelBadgeEl.className = "badge"; // reset
+            const lv = (data.risk_level || "").toLowerCase();
+            if (lv === "high") {
+                levelBadgeEl.classList.add("badge-high");
+                levelBadgeEl.textContent = "HIGH RISK";
+            } else if (lv === "medium") {
+                levelBadgeEl.classList.add("badge-medium");
+                levelBadgeEl.textContent = "MEDIUM RISK";
+            } else {
+                levelBadgeEl.classList.add("badge-low");
+                levelBadgeEl.textContent = "LOW RISK";
+            }
+            badgesEl.style.display = "block";
+
+            explanationEl.textContent = data.explanation || "No explanation provided.";
+
+            metaEl.innerHTML = `
+                <span class="pill">Open issues: <span>${data.open_issues ?? "?"}</span></span>
+                <span class="pill">Total issues: <span>${data.total_issues ?? "?"}</span></span>
+                <span class="pill">Blockers: <span>${data.blockers ?? "?"}</span></span><br />
+                Last evaluated: ${formatDate(data.last_evaluated_at)}
+            `;
+            metaEl.style.display = "block";
+
+        } catch (e) {
+            console.error("Failed to load risk details", e);
+            titleEl.textContent = "Error loading risk report";
+            explanationEl.textContent = "Could not retrieve risk information for this sprint.";
+        }
+    }
+
+    // Initial load
+    loadSprints();
+</script>
+</body>
+</html>
