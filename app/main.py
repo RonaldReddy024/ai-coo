@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from .database import Base, engine
 from .routers import integrations, sprints
 
+# Import models so they are registered with SQLAlchemy
+from . import models
+
+# Create all tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI COO for SaaS")
