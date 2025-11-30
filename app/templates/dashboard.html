@@ -260,15 +260,6 @@
             background: #0b1224;
         }
 
-        .issue-item {
-            cursor: pointer;
-            padding: 8px 12px;
-            border-radius: 4px;
-            margin-bottom: 6px;
-            background: #f7f7f7;
-            transition: background 0.2s;
-        }
-
         .issue-item:hover {
             background: #ececec;
         }
@@ -289,6 +280,14 @@
         .issue-meta {
             color: #9ca3af;
             font-size: 12px;
+        }
+        /* Make issue rows clickable, but keep original styling */
+        .issue-row {
+            cursor: pointer;
+        }
+
+        .issue-row:hover {
+            opacity: 0.95;       /* subtle hover; optional */
         }
 
         .checkbox-row {
@@ -387,6 +386,7 @@
         .sprint-row:hover {
             background: #111827;
             border-color: #374151;
+            opacity: 0.9;        /* or remove this line if you don't want any visual change */
         }
     </style>
 </head>
@@ -638,25 +638,30 @@
     issuesList.innerHTML = "";
 
     if (!issues || issues.length === 0) {
-        issuesList.innerHTML = "<p style='color:#555;'>No issues yet for this sprint.</p>";
+        issuesList.innerHTML = "<p class='empty-state'>No issues yet for this sprint.</p>";
         return;
     }
 
     issues.forEach((issue) => {
-        const div = document.createElement("div");
-        div.className = "issue-item";
+        const row = document.createElement("div");
+        row.className = "issue-row";   // ✅ back to your original style
 
-        div.innerHTML = `
-            <strong>${issue.key}</strong> – ${issue.title}<br>
-            <small>Status: ${issue.status}</small>
+        // Keep the structure simple so your existing CSS keeps working
+        row.innerHTML = `
+            <div class="issue-title">${issue.key} – ${issue.title}</div>
+            <div class="issue-meta">
+                Status: ${issue.status}
+                ${issue.assignee ? " · " + issue.assignee : ""}
+                ${issue.is_blocker ? " · BLOCKER" : ""}
+            </div>
         `;
 
-        // CLICK HANDLER FOR EACH ISSUE
-        div.onclick = () => {
+        // Still clickable ✅
+        row.addEventListener("click", () => {
             selectIssue(issue.id);
-        };
+        });
 
-        issuesList.appendChild(div);
+        issuesList.appendChild(row);
     });
   }
 
