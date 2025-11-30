@@ -6,6 +6,16 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+class Company(Base):
+    __tablename__ = "companies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+    integrations = relationship("Integration", back_populates="company", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="company", cascade="all, delete-orphan")
+
+
 class Integration(Base):
     __tablename__ = "integrations"
     
@@ -15,6 +25,8 @@ class Integration(Base):
     access_token = Column(String)
     extra = Column(String, nullable=True)  # renamed from metadata -> extra
 
+    company = relationship("Company", back_populates="integrations")
+
 
 class Project(Base):
     __tablename__ = "projects"
@@ -23,6 +35,8 @@ class Project(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     name = Column(String, nullable=False)
     jira_key = Column(String, nullable=True, unique=True)
+    
+    company = relationship("Company", back_populates="projects")
 
     sprints = relationship("Sprint", back_populates="project", cascade="all, delete-orphan")
 
