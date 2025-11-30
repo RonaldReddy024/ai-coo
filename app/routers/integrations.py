@@ -88,7 +88,7 @@ async def slack_test_message(channel: str = "#general"):
     headers = {"Authorization": f"Bearer {settings.SLACK_BOT_TOKEN}"}
     payload = {
         "channel": channel,
-        "text": "👋 AI COO test message – integration is working!"
+        "text": "👋 WorkYodha AI COO test message – integration is working!"
     }
 
     async with httpx.AsyncClient() as client:
