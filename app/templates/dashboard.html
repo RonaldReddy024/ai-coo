@@ -43,7 +43,61 @@
         .subtitle {
             color: #9ca3af;
             font-size: 14px;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
+        }
+
+        /* Top bar: filters + button */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .select-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .select-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+        }
+
+        .filter-select {
+            padding: 6px 8px;
+            border-radius: 999px;
+            border: 1px solid #374151;
+            background: #020617;
+            color: #e5e7eb;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .filter-select:focus {
+            border-color: #6366f1;
+        }
+
+        .button-primary {
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            background: #6366f1;
+            color: white;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .button-primary:hover {
+            background: #4f46e5;
         }
 
         table {
@@ -168,28 +222,138 @@
             outline: 1px solid #6366f1;
             outline-offset: -1px;
         }
+
+        /* Modal */
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 420px;
+            background: #020617;
+            border-radius: 16px;
+            border: 1px solid #1f2937;
+            padding: 20px 22px;
+            box-sizing: border-box;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid #374151;
+            background: #020617;
+            color: #e5e7eb;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .button-secondary {
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid #374151;
+            background: #020617;
+            color: #e5e7eb;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .button-secondary:hover {
+            background: #111827;
+        }
     </style>
 </head>
 <body>
 <div class="layout">
-    <!-- LEFT: Sprint list -->
+    <!-- LEFT: Sprint list + filters -->
     <div class="panel panel-left">
         <h1>AI COO – Sprint Risks</h1>
         <div class="subtitle">
-            Monitor sprint health across projects. Click any sprint to see a detailed AI risk explanation.
+            Monitor sprint health across projects. Use filters to focus on a company or project, then click a sprint to see a detailed AI risk explanation.
+        </div>
+
+        <div class="top-bar">
+            <div class="select-wrapper">
+                <span class="select-label">Company</span>
+                <select id="company-filter" class="filter-select">
+                    <option value="">All companies</option>
+                </select>
+            </div>
+            <div class="select-wrapper">
+                <span class="select-label">Project</span>
+                <select id="project-filter" class="filter-select">
+                    <option value="">All projects</option>
+                </select>
+            </div>
+            <button class="button-primary" id="create-sprint-btn">
+                + Create sprint
+            </button>
         </div>
 
         <h2>Sprints</h2>
         <div id="sprint-table-container">
             <div class="empty-state" id="no-sprints-state" style="display: none;">
-                No sprints found yet. Create sprints via the API, then refresh this page.
+                No sprints found yet. Create a sprint via the button above or via the API, then refresh this page.
             </div>
 
             <table id="sprint-table" style="display: none;">
                 <thead>
                 <tr>
                     <th style="width: 40%;">Sprint</th>
-                    <th>Status</th>
+                    <th>Project</th>
                     <th>Risk</th>
                     <th>Last Checked</th>
                 </tr>
@@ -221,11 +385,54 @@
     </div>
 </div>
 
+<!-- Create Sprint Modal -->
+<div id="create-sprint-modal" class="modal-backdrop">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Create new sprint</div>
+            <button class="modal-close" id="close-modal-btn">&times;</button>
+        </div>
+        <form id="create-sprint-form">
+            <div class="form-group">
+                <label class="form-label" for="modal-project">Project</label>
+                <select id="modal-project" class="form-select" required>
+                    <option value="">Select a project</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="modal-name">Sprint name</label>
+                <input id="modal-name" class="form-input" type="text" required placeholder="e.g. Sprint 12 – Checkout revamp">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="modal-start">Start date</label>
+                <input id="modal-start" class="form-input" type="datetime-local">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="modal-end">End date</label>
+                <input id="modal-end" class="form-input" type="datetime-local">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="button-secondary" id="cancel-modal-btn">Cancel</button>
+                <button type="submit" class="button-primary">Create sprint</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     const API_BASE = ""; // same origin
 
-    async function fetchJSON(url) {
-        const res = await fetch(url);
+    let filterData = {
+        companies: [],
+        projects: []
+    };
+
+    let selectedCompanyId = "";
+    let selectedProjectId = "";
+    let currentSelectedRow = null;
+
+    async function fetchJSON(url, options) {
+        const res = await fetch(url, options);
         if (!res.ok) {
             throw new Error(`Request failed: ${res.status}`);
         }
@@ -256,7 +463,48 @@
         return span;
     }
 
-    let currentSelectedRow = null;
+    function projectNameById(id) {
+        const p = filterData.projects.find(p => p.id === id);
+        return p ? p.name : "—";
+    }
+
+    async function loadFilters() {
+        try {
+            const data = await fetchJSON(`${API_BASE}/sprints/filters`);
+            filterData = data;
+
+            const companySelect = document.getElementById("company-filter");
+            const projectSelect = document.getElementById("project-filter");
+            const modalProjectSelect = document.getElementById("modal-project");
+
+            // reset
+            companySelect.innerHTML = `<option value="">All companies</option>`;
+            projectSelect.innerHTML = `<option value="">All projects</option>`;
+            modalProjectSelect.innerHTML = `<option value="">Select a project</option>`;
+
+            data.companies.forEach(c => {
+                const opt = document.createElement("option");
+                opt.value = c.id;
+                opt.textContent = c.name;
+                companySelect.appendChild(opt);
+            });
+
+            data.projects.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = p.name;
+                projectSelect.appendChild(opt);
+
+                const opt2 = document.createElement("option");
+                opt2.value = p.id;
+                opt2.textContent = p.name;
+                modalProjectSelect.appendChild(opt2);
+            });
+
+        } catch (e) {
+            console.error("Failed to load filters", e);
+        }
+    }
 
     async function loadSprints() {
         const tbody = document.getElementById("sprint-tbody");
@@ -264,10 +512,19 @@
         const emptyState = document.getElementById("no-sprints-state");
 
         tbody.innerHTML = "";
+        if (currentSelectedRow) {
+            currentSelectedRow.classList.remove("selected-row");
+            currentSelectedRow = null;
+        }
 
+        let url = `${API_BASE}/sprints`;
+        const params = [];
+        if (selectedCompanyId) params.push(`company_id=${selectedCompanyId}`);
+        if (selectedProjectId) params.push(`project_id=${selectedProjectId}`);
+        if (params.length > 0) url += `?${params.join("&")}`;
         let sprints = [];
         try {
-            sprints = await fetchJSON(`${API_BASE}/sprints`);
+            sprints = await fetchJSON(url);
         } catch (e) {
             console.error("Failed to load sprints", e);
         }
@@ -288,8 +545,8 @@
             const nameTd = document.createElement("td");
             nameTd.textContent = sprint.name;
 
-            const statusTd = document.createElement("td");
-            statusTd.textContent = sprint.status || "—";
+            const projectTd = document.createElement("td");
+            projectTd.textContent = projectNameById(sprint.project_id);
 
             const riskTd = document.createElement("td");
             riskTd.appendChild(createRiskBadge(sprint.risk_level));
@@ -299,7 +556,7 @@
 
             tr.appendChild(nameTd);
             tr.appendChild(statusTd);
-            tr.appendChild(riskTd);
+            tr.appendChild(projectTd);
             tr.appendChild(lastTd);
 
             tr.addEventListener("click", () => {
@@ -323,7 +580,7 @@
         const explanationEl = document.getElementById("risk-explanation");
         const metaEl = document.getElementById("risk-meta");
 
-        // reset state
+        
         titleEl.textContent = "Loading risk report…";
         scoreEl.style.display = "none";
         badgesEl.style.display = "none";
@@ -336,8 +593,7 @@
             scoreEl.textContent = (data.risk_score ?? 0).toFixed(2);
             scoreEl.style.display = "block";
 
-            // set badge
-            levelBadgeEl.className = "badge"; // reset
+            levelBadgeEl.className = "badge";
             const lv = (data.risk_level || "").toLowerCase();
             if (lv === "high") {
                 levelBadgeEl.classList.add("badge-high");
@@ -368,8 +624,72 @@
         }
     }
 
+    function openCreateModal() {
+        document.getElementById("create-sprint-modal").style.display = "flex";
+    }
+
+    function closeCreateModal() {
+        document.getElementById("create-sprint-modal").style.display = "none";
+        document.getElementById("create-sprint-form").reset();
+    }
+
+    async function handleCreateSprintSubmit(event) {
+        event.preventDefault();
+        const projectId = document.getElementById("modal-project").value;
+        const name = document.getElementById("modal-name").value.trim();
+        const start = document.getElementById("modal-start").value;
+        const end = document.getElementById("modal-end").value;
+
+        if (!projectId || !name) {
+            alert("Please select a project and enter a sprint name.");
+            return;
+        }
+
+        const payload = {
+            project_id: Number(projectId),
+            name: name,
+            start_date: start || null,
+            end_date: end || null
+        };
+
+        try {
+            await fetchJSON(`${API_BASE}/sprints`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(payload)
+            });
+            closeCreateModal();
+            await loadSprints();
+        } catch (e) {
+            console.error("Failed to create sprint", e);
+            alert("Failed to create sprint. Check console for details.");
+        }
+    }
+
+    // Event wiring
+    document.getElementById("company-filter").addEventListener("change", (e) => {
+        selectedCompanyId = e.target.value;
+        // reset project filter when company changes
+        selectedProjectId = "";
+        document.getElementById("project-filter").value = "";
+        loadSprints();
+    });
+
+    document.getElementById("project-filter").addEventListener("change", (e) => {
+        selectedProjectId = e.target.value;
+        loadSprints();
+    });
+
+    document.getElementById("create-sprint-btn").addEventListener("click", openCreateModal);
+    document.getElementById("close-modal-btn").addEventListener("click", closeCreateModal);
+    document.getElementById("cancel-modal-btn").addEventListener("click", closeCreateModal);
+    document.getElementById("create-sprint-form").addEventListener("submit", handleCreateSprintSubmit);
+
     // Initial load
-    loadSprints();
+    (async function init() {
+        await loadFilters();
+        await loadSprints();
+    })();
 </script>
 </body>
 </html>
