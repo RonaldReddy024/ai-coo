@@ -245,15 +245,8 @@ def get_sprint(sprint_id: int, db: Session = Depends(get_db)):
     return sprint
 
 
-@router.get("/{sprint_id}/risk", response_model=SprintRiskReport)
+@router.get("/risk/{sprint_id}", response_model=SprintRiskReport)
 def get_sprint_risk(sprint_id: int, db: Session = Depends(get_db)):
-    sprint = (
-        db.query(models.Sprint)
-        .filter_by(id=sprint_id)
-        .first()
-    )
-@router.get("/{sprint_id}/risk", response_model=dict)
-def get_sprint_risk_summary(sprint_id: int, db: Session = Depends(get_db)):
     sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
