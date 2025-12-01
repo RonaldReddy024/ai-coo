@@ -373,6 +373,37 @@ def run_task(
     }
 
 
+@app.get("/tasks/{task_id}")
+def get_task(task_id: int, db: Session = Depends(get_db)):
+    """
+    Return full info for a single task.
+    """
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # reuse existing serializer
+    return {"ok": True, "task": serialize_task(task)}
+
+
+@app.get("/tasks/{task_id}/status")
+def get_task_status(task_id: int, db: Session = Depends(get_db)):
+    """
+    Lightweight endpoint to poll status from CLI or frontend.
+    """
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return {
+        "ok": True,
+        "id": task.id,
+        "title": task.title,
+        "status": task.status,
+        "result_text": task.result_text,
+    }
+
+
 @app.post("/tasks/run_debug")
 def run_task_debug(
     payload: TaskCreate,
@@ -526,9 +557,3 @@ if __name__ == "__main__":
 
 
 
-@app.get("/tasks/{task_id}")
-def get_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.get(Task, task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return serialize_task(task)
