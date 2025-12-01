@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float, JSON
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -82,3 +82,28 @@ class Task(Base):
     result_text = Column(Text, nullable=True)
     metadata_json = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AiTaskLog(Base):
+    __tablename__ = "ai_task_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False, index=True)
+
+    # e.g. "created", "status_change", "error"
+    event = Column(String, nullable=False)
+
+    # status before change (can be None for first log)
+    old_status = Column(String, nullable=True)
+
+    # status after change
+    new_status = Column(String, nullable=True)
+
+    # optional snapshot of the result_text at that time
+    result_text = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # relationship back to Task
+    task = relationship("Task", backref="logs")
