@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -71,3 +71,14 @@ class Issue(Base):
     is_blocker = Column(Boolean, default=False)
 
     sprint = relationship("Sprint", back_populates="issues")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    status = Column(String, default="pending")
+    result_text = Column(Text, nullable=True)
+    metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
