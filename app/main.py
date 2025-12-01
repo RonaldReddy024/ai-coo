@@ -8,13 +8,34 @@ from .ai_logic import run_ai_coo_logic
 from .database import Base, SessionLocal, engine, get_db
 from .routers import auth, companies, integrations, sprints
 from . import models  # register models
-from .models import Task
+from .models import Task, AiTaskLog
 from .schemas import TaskCreate, TaskUpdate
 from .supabase_client import SUPABASE_AVAILABLE, supabase
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="WorkYodha AI COO for SaaS")
+
+
+def log_task_event(
+    db: Session,
+    task: Task,
+    event: str,
+    old_status: str | None,
+    new_status: str | None,
+):
+    """
+    Record a single log entry for a task.
+    Does NOT commit by itself so it can be composed with other DB work.
+    """
+    log = AiTaskLog(
+        task_id=task.id,
+        event=event,
+        old_status=old_status,
+        new_status=new_status,
+        result_text=task.result_text,
+    )
+    db.add(log)
 
 # Routers
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
@@ -174,10 +195,10 @@ def run_task(
     payload: TaskCreate,
     db: Session = Depends(get_db),
 ):
-    # 1. Create the task and mark it as in_progress
+    # 1. Create the task in "pending" state
     task = Task(
         title=payload.title,
-        status="in_progress",
+        status="pending",
         result_text=None,
         metadata_json=payload.metadata or {},
     )
@@ -185,17 +206,78 @@ def run_task(
     db.commit()
     db.refresh(task)
 
-    # 2. Run the AI COO logic synchronously (with fallback)
+    # Log creation
+    log_task_event(
+        db=db,
+        task=task,
+        event="created",
+        old_status=None,
+        new_status=task.status,
+    )
+    db.commit()
+
+    # 2. Mark as in_progress and log that
+    old_status = task.status
+    task.status = "in_progress"
+    db.commit()
+
+    log_task_event(
+        db=db,
+        task=task,
+        event="status_change",
+        old_status=old_status,
+        new_status=task.status,
+    )
+    db.commit()
+
+    # 3. Run the AI COO logic synchronously (with fallback)
     result_text = run_ai_coo_logic(task)
 
-    # 3. Save the result and mark as completed
+    # 4. Mark as completed, save result, and log final status
+    old_status = task.status
     task.status = "completed"
     task.result_text = result_text
     db.commit()
     db.refresh(task)
 
-    # 4. Return the finished task
+    log_task_event(
+        db=db,
+        task=task,
+        event="status_change",
+        old_status=old_status,
+        new_status=task.status,
+    )
+    db.commit()
+
     return {"ok": True, "task": task}
+
+
+@app.get("/tasks/{task_id}/logs")
+def get_task_logs(task_id: int, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    logs = (
+        db.query(AiTaskLog)
+        .filter(AiTaskLog.task_id == task_id)
+        .order_by(AiTaskLog.created_at.asc())
+        .all()
+    )
+
+    # Return clean JSON instead of raw ORM objects
+    return [
+        {
+            "id": log.id,
+            "task_id": log.task_id,
+            "event": log.event,
+            "old_status": log.old_status,
+            "new_status": log.new_status,
+            "created_at": log.created_at.isoformat(),
+            "has_result_text": bool(log.result_text),
+        }
+        for log in logs
+    ]
 
 
 def run():
