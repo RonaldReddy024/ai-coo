@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
+from typing import Any, Optional
 
 from .database import Base, engine
 from .routers import companies, integrations, sprints, auth
@@ -65,10 +66,12 @@ async def supabase_test():
 
 class TaskCreate(BaseModel):
     title: str
-
+    metadata: Optional[dict[str, Any]] = None
 
 class TaskUpdate(BaseModel):
-    status: str | None = None
+    status: Optional[str] = None
+    result_text: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 # ---------- Routes using Supabase ----------
@@ -84,6 +87,8 @@ async def create_task(task: TaskCreate):
             "title": task.title,
             # status will default to 'pending' in DB
         }
+        if task.metadata is not None:
+            payload["metadata"] = task.metadata
         response = supabase.table("ai_tasks").insert(payload).execute()
         return {
             "ok": True,
@@ -125,6 +130,13 @@ async def update_task(task_id: int, update: TaskUpdate):
         if update.status is not None:
             update_data["status"] = update.status
 
+
+        if update.result_text is not None:
+            update_data["result_text"] = update.result_text
+
+        if update.metadata is not None:
+            update_data["metadata"] = update.metadata
+
         if not update_data:
             raise HTTPException(status_code=400, detail="No fields to update")
 
@@ -146,8 +158,6 @@ async def update_task(task_id: int, update: TaskUpdate):
 # ---------------------------
 # AI COO RUN TASK ENDPOINT
 # ---------------------------
-
-from typing import Any, Optional
 
 def run_ai_coo_logic(title: str, metadata: Optional[dict[str, Any]] = None) -> str:
     """
