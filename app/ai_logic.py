@@ -53,7 +53,7 @@ def run_ai_coo_logic(task) -> str:
     `task` is your SQLAlchemy Task model instance.
     """
     title = getattr(task, "title", "")
-    metadata = getattr(task, "metadata", {}) or {}
+    metadata = getattr(task, "metadata_json", {}) or {}
 
     prompt = build_ai_coo_prompt(title, metadata)
 
