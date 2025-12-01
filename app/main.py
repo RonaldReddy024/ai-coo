@@ -1,15 +1,14 @@
-from typing import Any, Optional
-
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .ai_logic import run_ai_coo_logic
 from .database import Base, SessionLocal, engine
 from .deps import get_db
+from .routers import auth, companies, integrations, sprints
 from . import models  # register models
 from .models import Task
+from .schemas import TaskCreate, TaskUpdate
 from .supabase_client import supabase
 
 Base.metadata.create_all(bind=engine)
@@ -63,21 +62,6 @@ async def supabase_test():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-# ---------- Pydantic models ----------
-
-
-class TaskCreate(BaseModel):
-    title: str
-    metadata: Optional[dict[str, Any]] = None
-
-class TaskUpdate(BaseModel):
-    status: Optional[str] = None
-    result_text: Optional[str] = None
-    metadata: Optional[dict[str, Any]] = None
-
-
 # ---------- Task endpoints (database-backed) ---------
 
 
@@ -87,7 +71,11 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     Create a new task in the local database.
     """
     try:
-        db_task = Task(title=task.title, status="pending", metadata=task.metadata)
+        db_task = Task(
+            title=task.title,
+            status="pending",
+            metadata=task.metadata or {},
+        )
         db.add(db_task)
         db.commit()
         db.refresh(db_task)
@@ -153,7 +141,7 @@ def process_task_in_background(task_id: int):
         db.commit()
 
         # Run your AI COO logic (this can be slow)
-        result_text = run_ai_coo_logic(task.title, task.metadata)
+        result_text = run_ai_coo_logic(task)
 
         # Save result
         task.status = "completed"
@@ -185,7 +173,7 @@ def run_task(
             title=payload.title,
             status="pending",
             result_text=None,
-            metadata=payload.metadata,
+            metadata=payload.metadata or {},
         )
         db.add(task)
         db.commit()
