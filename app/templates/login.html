@@ -1,116 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Login – WorkYodha AI COO</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: #020617;
-            color: #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        .card {
-            width: 100%;
-            max-width: 360px;
-            padding: 20px 22px;
-            border-radius: 16px;
-            background: #020617;
-            border: 1px solid #1f2937;
-        }
-        .title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-        .subtitle {
-            font-size: 13px;
-            color: #9ca3af;
-            margin-bottom: 16px;
-        }
-        .form-group {
-            margin-bottom: 12px;
-        }
-        .label {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #9ca3af;
-            margin-bottom: 4px;
-            display: block;
-        }
-        .input {
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 10px;
-            border: 1px solid #374151;
-            background: #020617;
-            color: #e5e7eb;
-            font-size: 13px;
-            box-sizing: border-box;
-        }
-        .input:focus {
-            outline: none;
-            border-color: #6366f1;
-        }
-        .button-primary {
-            width: 100%;
-            padding: 9px 14px;
-            border-radius: 999px;
-            border: none;
-            font-size: 14px;
-            font-weight: 600;
-            background: #6366f1;
-            color: white;
-            cursor: pointer;
-            margin-top: 8px;
-        }
-        .button-primary:hover {
-            background: #4f46e5;
-        }
-        .footnote {
-            font-size: 11px;
-            color: #6b7280;
-            margin-top: 10px;
-            text-align: center;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>WorkYodha AI COO – Login</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #020617;
+      padding: 32px;
+      border-radius: 16px;
+      width: 360px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.8);
+      border: 1px solid #1f2937;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 8px; }
+    p.subtitle { font-size: 0.9rem; color: #9ca3af; margin-bottom: 24px; }
+    label { display: block; font-size: 0.85rem; margin-bottom: 6px; }
+    input[type="email"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    button {
+      margin-top: 16px;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .message { margin-top: 12px; font-size: 0.85rem; color: #a5b4fc; }
+  </style>
 </head>
 <body>
-<div class="card">
-    <div class="title">Login</div>
-    <div class="subtitle">This is a lightweight WorkYodha preview. We’ll just remember your name locally.</div>
-    <form onsubmit="handleLogin(event)">
-        <div class="form-group">
-            <label class="label" for="name">Your name</label>
-            <input id="name" class="input" required placeholder="e.g. Ronald Reddy">
-        </div>
-        <div class="form-group">
-            <label class="label" for="company">Company / team name</label>
-            <input id="company" class="input" placeholder="e.g. DesiBeat">
-        </div>
-        <button type="submit" class="button-primary">Continue to dashboard</button>
-    </form>
-    <div class="footnote">
-        Later this can be replaced with real auth & org selection (JWT, SSO, etc.).
-    </div>
-</div>
-<script>
-    function handleLogin(e) {
-        e.preventDefault();
-        const name = document.getElementById("name").value.trim();
-        const company = document.getElementById("company").value.trim();
-        if (!name) return;
+  <div class="card">
+    <h1>WorkYodha AI COO</h1>
+    <p class="subtitle">Sign in with a magic link – no password needed.</p>
 
-        // just store locally as a UX touch
-        window.localStorage.setItem("ai_coo_user_name", name);
-        window.localStorage.setItem("ai_coo_company_name", company);
-        window.location.href = "/dashboard";
-    }
-</script>
+    <form method="post" action="/auth/magic-link">
+      <label for="email">Work email</label>
+      <input id="email" type="email" name="email" required placeholder="you@company.com" />
+      <button type="submit">Send magic link</button>
+    </form>
+
+    {% if message %}
+      <p class="message">{{ message }}</p>
+    {% endif %}
+  </div>
 </body>
 </html>
