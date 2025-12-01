@@ -249,7 +249,18 @@ def run_task(
     )
     db.commit()
 
-    return {"ok": True, "task": task}
+    # 5. Return a plain dict (no ORM / Pydantic magic)
+    return {
+        "ok": True,
+        "task": {
+            "id": task.id,
+            "title": task.title,
+            "status": task.status,
+            "metadata_json": task.metadata_json,
+            "result_text": task.result_text,
+            "created_at": task.created_at,
+        },
+    }
 
 
 @app.get("/tasks/{task_id}/logs")
