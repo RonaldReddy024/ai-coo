@@ -284,20 +284,13 @@ def run_task_async(
     db.commit()
     db.refresh(task)
 
-    # Log creation
-    log_task_event(
-        db=db,
-        task=task,
-        event="created",
-        old_status=None,
-        new_status=task.status,
-    )
-    db.commit()
+    # TEMPORARILY disable event logging
+    # log_task_event(...)
 
-    # 2. Kick off background processing
-    background_tasks.add_task(process_task_in_background, task.id)
+    # TEMPORARILY disable background worker
+    # background_tasks.add_task(process_task_in_background, task.id)
 
-    # 3. Return immediately
+    # Return immediately
     return {
         "ok": True,
         "task": {
