@@ -80,5 +80,5 @@ class Task(Base):
     title = Column(String, nullable=False)
     status = Column(String, default="pending")
     result_text = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    metadata_json = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
