@@ -6,3 +6,4 @@ python-dotenv
 httpx
 pydantic
 apscheduler
+supabase
