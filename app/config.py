@@ -12,5 +12,9 @@ class Settings:
     JIRA_BASE_URL: str = os.getenv("JIRA_BASE_URL", "")
     JIRA_EMAIL: str = os.getenv("JIRA_EMAIL", "")
     JIRA_API_TOKEN: str = os.getenv("JIRA_API_TOKEN", "")
-
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
+    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    SITE_URL: str = os.getenv("SITE_URL", "http://localhost:8000")
+    
 settings = Settings()
