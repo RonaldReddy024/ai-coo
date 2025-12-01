@@ -142,3 +142,66 @@ async def update_task(task_id: int, update: TaskUpdate):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------
+# AI COO RUN TASK ENDPOINT
+# ---------------------------
+
+from typing import Any, Optional
+
+def run_ai_coo_logic(title: str, metadata: Optional[dict[str, Any]] = None) -> str:
+    """
+    Placeholder for your real AI COO workflow.
+
+    For now, it returns a simple string.
+    """
+    base = f"AI-COO processed task: {title}"
+    if metadata:
+        base += f" | metadata keys: {', '.join(metadata.keys())}"
+    return base
+
+
+@app.post("/tasks/run")
+async def run_task(task: TaskCreate):
+    """
+    Create a task, run AI COO logic, store result, and return updated task.
+    """
+    try:
+        # Create the task first
+        insert_payload: dict[str, Any] = {
+            "title": task.title,
+            "status": "pending",
+        }
+        if task.metadata is not None:
+            insert_payload["metadata"] = task.metadata
+
+        insert_resp = supabase.table("ai_tasks").insert(insert_payload).execute()
+
+        created_task = insert_resp.data[0]
+        task_id = created_task["id"]
+
+        # Run the AI logic
+        result = run_ai_coo_logic(task.title, task.metadata)
+
+        # Update the task with result
+        update_payload = {
+            "status": "completed",
+            "result_text": result,
+        }
+
+        update_resp = (
+            supabase.table("ai_tasks")
+            .update(update_payload)
+            .eq("id", task_id)
+            .execute()
+        )
+
+        updated_task = update_resp.data[0]
+
+        return {
+            "ok": True,
+            "task": updated_task,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
