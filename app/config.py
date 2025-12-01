@@ -1,20 +1,20 @@
-import os
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
-load_dotenv()
 
-class Settings:
-    # Default to a local SQLite database so the app can run without an
-    # external Postgres instance. Override with DATABASE_URL env var when
-    # deploying to other environments.
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./app.db")
-    SLACK_BOT_TOKEN: str = os.getenv("SLACK_BOT_TOKEN", "")
-    JIRA_BASE_URL: str = os.getenv("JIRA_BASE_URL", "")
-    JIRA_EMAIL: str = os.getenv("JIRA_EMAIL", "")
-    JIRA_API_TOKEN: str = os.getenv("JIRA_API_TOKEN", "")
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-    SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
-    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-    SITE_URL: str = os.getenv("SITE_URL", "http://localhost:8000")
-    
+class Settings(BaseSettings):
+    DATABASE_URL: str = "sqlite:///./app.db"
+    SLACK_BOT_TOKEN: str = ""
+    JIRA_BASE_URL: str = ""
+    JIRA_EMAIL: str = ""
+    JIRA_API_TOKEN: str = ""
+
+    SUPABASE_URL: str
+    SUPABASE_ANON_KEY: str
+    SUPABASE_SERVICE_ROLE_KEY: str
+    SITE_URL: str = "http://localhost:8000"
+
+    class Config:
+        env_file = ".env"
+
+
 settings = Settings()
