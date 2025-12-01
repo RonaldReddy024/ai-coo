@@ -1,6 +1,5 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from .database import Base, engine
 from .routers import companies, integrations, sprints, auth
@@ -16,8 +15,6 @@ app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
 app.include_router(companies.router)
 app.include_router(auth.router, tags=["auth"])
 
-templates = Jinja2Templates(directory="app/templates")
-
 
 # Landing page redirects to login for now
 @app.get("/")
@@ -25,10 +22,20 @@ async def root_redirect():
     return RedirectResponse(url="/login")
 
 
-# Dashboard
+# Dashboard placeholder
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+async def dashboard():
+    return """
+    <html>
+      <head><title>AI COO Dashboard</title></head>
+      <body style=\"font-family: system-ui; background:#020617; color:#e5e7eb;\">
+        <h1>WorkYodha AI COO</h1>
+        <p>You are logged in via Supabase magic link ✅</p>
+        <p>We’ll replace this with the real sprint dashboard later.</p>
+        <a href=\"/sprints-dashboard\" style=\"color:#a855f7;\">Go to Sprint Risks</a>
+      </body>
+    </html>
+    """
 
 
 # Optional: simple health endpoint
