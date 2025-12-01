@@ -37,6 +37,19 @@ def log_task_event(
     )
     db.add(log)
 
+
+def serialize_task(task: Task) -> dict:
+    """Return a JSON-safe dictionary for a Task ORM object."""
+
+    return {
+        "id": task.id,
+        "title": task.title,
+        "status": task.status,
+        "metadata_json": task.metadata_json or {},
+        "result_text": task.result_text,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+    }
+
 # Routers
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
@@ -107,7 +120,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         db.add(db_task)
         db.commit()
         db.refresh(db_task)
-        return {"ok": True, "task": db_task}
+        return {"ok": True, "task": serialize_task(db_task)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -119,7 +132,11 @@ async def list_tasks(limit: int = 20, db: Session = Depends(get_db)):
     """
     try:
         tasks = db.query(Task).order_by(Task.created_at.desc()).limit(limit).all()
-        return {"ok": True, "count": len(tasks), "data": tasks}
+        return {
+            "ok": True,
+            "count": len(tasks),
+            "data": [serialize_task(t) for t in tasks],
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -145,7 +162,7 @@ async def update_task(task_id: int, update: TaskUpdate, db: Session = Depends(ge
 
         db.commit()
         db.refresh(db_task)
-        return {"ok": True, "task": db_task}
+        return {"ok": True, "task": serialize_task(db_task)}
         
     except HTTPException:
         raise
@@ -252,14 +269,7 @@ def run_task(
     # 5. Return a plain dict (no ORM / Pydantic magic)
     return {
         "ok": True,
-        "task": {
-            "id": task.id,
-            "title": task.title,
-            "status": task.status,
-            "metadata_json": task.metadata_json,
-            "result_text": task.result_text,
-            "created_at": task.created_at,
-        },
+        "task": serialize_task(task),
     }
 
 
@@ -314,4 +324,4 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    return serialize_task(task)
