@@ -1,12 +1,15 @@
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from .database import Base, engine
-from .routers import companies, integrations, sprints, auth
+from .ai_logic import run_ai_coo_logic
+from .database import Base, SessionLocal, engine
+from .deps import get_db
 from . import models  # register models
+from .models import Task
 from .supabase_client import supabase
 
 Base.metadata.create_all(bind=engine)
@@ -75,82 +78,59 @@ class TaskUpdate(BaseModel):
     metadata: Optional[dict[str, Any]] = None
 
 
-# ---------- Routes using Supabase ----------
+# ---------- Task endpoints (database-backed) ---------
 
 
 @app.post("/tasks")
-async def create_task(task: TaskCreate):
+async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     """
-    Create a new task in ai_tasks table.
+    Create a new task in the local database.
     """
     try:
-        payload = {
-            "title": task.title,
-            # status will default to 'pending' in DB
-        }
-        if task.metadata is not None:
-            payload["metadata"] = task.metadata
-        response = supabase.table("ai_tasks").insert(payload).execute()
-        return {
-            "ok": True,
-            "data": response.data,
-        }
+        db_task = Task(title=task.title, status="pending", metadata=task.metadata)
+        db.add(db_task)
+        db.commit()
+        db.refresh(db_task)
+        return {"ok": True, "task": db_task}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/tasks")
-async def list_tasks(limit: int = 20):
+async def list_tasks(limit: int = 20, db: Session = Depends(get_db)):
     """
-    List tasks from ai_tasks.
+    List tasks from the local database.
     """
     try:
-        response = (
-            supabase.table("ai_tasks")
-            .select("*")
-            .order("created_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        return {
-            "ok": True,
-            "count": len(response.data or []),
-            "data": response.data,
-        }
+        tasks = db.query(Task).order_by(Task.created_at.desc()).limit(limit).all()
+        return {"ok": True, "count": len(tasks), "data": tasks}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.patch("/tasks/{task_id}")
-async def update_task(task_id: int, update: TaskUpdate):
+async def update_task(task_id: int, update: TaskUpdate, db: Session = Depends(get_db)):
     """
     Update a task's status.
     """
     try:
-        update_data = {}
+        db_task = db.get(Task, task_id)
+        if not db_task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
         if update.status is not None:
-            update_data["status"] = update.status
-
-
+            db_task.status = update.status
+            
         if update.result_text is not None:
-            update_data["result_text"] = update.result_text
+            db_task.result_text = update.result_text
 
         if update.metadata is not None:
-            update_data["metadata"] = update.metadata
+            db_task.metadata = update.metadata
 
-        if not update_data:
-            raise HTTPException(status_code=400, detail="No fields to update")
-
-        response = (
-            supabase.table("ai_tasks")
-            .update(update_data)
-            .eq("id", task_id)
-            .execute()
-        )
-        return {
-            "ok": True,
-            "data": response.data,
-        }
+        db.commit()
+        db.refresh(db_task)
+        return {"ok": True, "task": db_task}
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -160,59 +140,70 @@ async def update_task(task_id: int, update: TaskUpdate):
 # AI COO RUN TASK ENDPOINT
 # ---------------------------
 
-def run_ai_coo_logic(title: str, metadata: Optional[dict[str, Any]] = None) -> str:
-    """
-    Placeholder for your real AI COO workflow.
+def process_task_in_background(task_id: int):
+    """Runs the AI-COO logic in the background and updates the DB."""
+    db = SessionLocal()
+    try:
+        task = db.get(Task, task_id)
+        if not task:
+            return
 
-    For now, it returns a simple string.
-    """
-    base = f"AI-COO processed task: {title}"
-    if metadata:
-        base += f" | metadata keys: {', '.join(metadata.keys())}"
-    return base
+        # Mark as in progress
+        task.status = "in_progress"
+        db.commit()
+
+        # Run your AI COO logic (this can be slow)
+        result_text = run_ai_coo_logic(task.title, task.metadata)
+
+        # Save result
+        task.status = "completed"
+        task.result_text = result_text
+        db.commit()
+    except Exception as e:
+        # Basic failure handling
+        task = db.get(Task, task_id)
+        if task:
+            task.status = "failed"
+            task.result_text = f"Error while processing task: {e}"
+            db.commit()
+    finally:
+        db.close()
 
 
 @app.post("/tasks/run")
-async def run_task(task: TaskCreate):
+def run_task(
+    payload: TaskCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     """
     Create a task, run AI COO logic, store result, and return updated task.
     """
     try:
-        # Create the task first
-        insert_payload: dict[str, Any] = {
-            "title": task.title,
-            "status": "pending",
-        }
-        if task.metadata is not None:
-            insert_payload["metadata"] = task.metadata
-
-        insert_resp = supabase.table("ai_tasks").insert(insert_payload).execute()
-
-        created_task = insert_resp.data[0]
-        task_id = created_task["id"]
-
-        # Run the AI logic
-        result = run_ai_coo_logic(task.title, task.metadata)
-
-        # Update the task with result
-        update_payload = {
-            "status": "completed",
-            "result_text": result,
-        }
-
-        update_resp = (
-            supabase.table("ai_tasks")
-            .update(update_payload)
-            .eq("id", task_id)
-            .execute()
+        # 1. Create the task as "pending"
+        task = Task(
+            title=payload.title,
+            status="pending",
+            result_text=None,
+            metadata=payload.metadata,
         )
-
-        updated_task = update_resp.data[0]
-
-        return {
-            "ok": True,
-            "task": updated_task,
-        }
-
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+       
+        # 2. Enqueue background processing
+        background_tasks.add_task(process_task_in_background, task.id)
+       
+        # 3. Return immediately
+        return {"ok": True, "task": task}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.get("/tasks/{task_id}")
+def get_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
