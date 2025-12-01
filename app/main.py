@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from .database import Base, engine
 from .routers import companies, integrations, sprints, auth
 from . import models  # register models
+from .supabase_client import supabase
 
 Base.metadata.create_all(bind=engine)
 
@@ -42,3 +43,16 @@ async def dashboard():
 @app.get("/api/health")
 def health():
     return {"status": "ok", "app": "WorkYodha AI COO backend running"}
+
+
+@app.get("/supabase-test")
+async def supabase_test():
+    try:
+        response = supabase.table("tasks").select("*").limit(5).execute()
+        return {
+            "ok": True,
+            "count": len(response.data or []),
+            "data": response.data,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
