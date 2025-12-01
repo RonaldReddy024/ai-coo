@@ -74,7 +74,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
         db_task = Task(
             title=task.title,
             status="pending",
-            metadata=task.metadata or {},
+            metadata_json=task.metadata or {},
         )
         db.add(db_task)
         db.commit()
@@ -113,7 +113,7 @@ async def update_task(task_id: int, update: TaskUpdate, db: Session = Depends(ge
             db_task.result_text = update.result_text
 
         if update.metadata is not None:
-            db_task.metadata = update.metadata
+            db_task.metadata_json = update.metadata
 
         db.commit()
         db.refresh(db_task)
@@ -173,7 +173,7 @@ def run_task(
             title=payload.title,
             status="pending",
             result_text=None,
-            metadata=payload.metadata or {},
+            metadata_json=payload.metadata or {},
         )
         db.add(task)
         db.commit()
