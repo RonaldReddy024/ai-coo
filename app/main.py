@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 
 from .database import Base, engine
 from .routers import companies, integrations, sprints, auth
@@ -54,5 +55,90 @@ async def supabase_test():
             "count": len(response.data or []),
             "data": response.data,
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# ---------- Pydantic models ----------
+
+
+class TaskCreate(BaseModel):
+    title: str
+
+
+class TaskUpdate(BaseModel):
+    status: str | None = None
+
+
+# ---------- Routes using Supabase ----------
+
+
+@app.post("/tasks")
+async def create_task(task: TaskCreate):
+    """
+    Create a new task in ai_tasks table.
+    """
+    try:
+        payload = {
+            "title": task.title,
+            # status will default to 'pending' in DB
+        }
+        response = supabase.table("ai_tasks").insert(payload).execute()
+        return {
+            "ok": True,
+            "data": response.data,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/tasks")
+async def list_tasks(limit: int = 20):
+    """
+    List tasks from ai_tasks.
+    """
+    try:
+        response = (
+            supabase.table("ai_tasks")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return {
+            "ok": True,
+            "count": len(response.data or []),
+            "data": response.data,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/tasks/{task_id}")
+async def update_task(task_id: int, update: TaskUpdate):
+    """
+    Update a task's status.
+    """
+    try:
+        update_data = {}
+        if update.status is not None:
+            update_data["status"] = update.status
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        response = (
+            supabase.table("ai_tasks")
+            .update(update_data)
+            .eq("id", task_id)
+            .execute()
+        )
+        return {
+            "ok": True,
+            "data": response.data,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
