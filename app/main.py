@@ -152,7 +152,7 @@ def process_task_in_background(task_id: int):
         task = db.get(Task, task_id)
         if task:
             task.status = "failed"
-            task.result_text = f"Error while processing task: {e}"
+            task.result_text = f"Unexpected error while processing task: {e}"
             db.commit()
     finally:
         db.close()
