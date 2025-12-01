@@ -384,40 +384,45 @@ def run_task_debug(
 
 @app.get("/tasks/{task_id}/logs")
 def get_task_logs(task_id: int, db: Session = Depends(get_db)):
-    # Do NOT load Task here (table schema mismatch on company_id)
-    logs = (
-        db.query(AiTaskLog)
-        .filter(AiTaskLog.task_id == task_id)
-        .order_by(AiTaskLog.created_at.asc())
-        .all()
-    )
-
-    # If you want a 404 when no logs exist:
-    if not logs:
-        raise HTTPException(status_code=404, detail="No logs found for this task")
-
-    result = []
-    for log in logs:
-        if log is None:
-            continue
-
-        created_at_value = (
-            log.created_at.isoformat() if getattr(log, "created_at", None) else None
+    try:
+        # Do NOT load Task here (table schema mismatch on company_id)
+        logs = (
+            db.query(AiTaskLog)
+            .filter(AiTaskLog.task_id == task_id)
+            .order_by(AiTaskLog.created_at.asc())
+            .all()
         )
 
-        result.append(
-            {
-                "id": log.id,
-                "task_id": log.task_id,
-                "event": log.event,
-                "old_status": log.old_status,
-                "new_status": log.new_status,
-                "created_at": created_at_value,
-                "has_result_text": bool(getattr(log, "result_text", None)),
-            }
-        )
+        # If you want a 404 when no logs exist:
+        if not logs:
+            raise HTTPException(status_code=404, detail="No logs found for this task")
 
-    return result
+        result = []
+        for log in logs:
+            if log is None:
+                continue
+
+            created_at_value = (
+                log.created_at.isoformat() if getattr(log, "created_at", None) else None
+            )
+
+            result.append(
+                {
+                    "id": log.id,
+                    "task_id": log.task_id,
+                    "event": log.event,
+                    "old_status": log.old_status,
+                    "new_status": log.new_status,
+                    "created_at": created_at_value,
+                    "has_result_text": bool(getattr(log, "result_text", None)),
+                }
+            )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive guard against DB errors
+        raise HTTPException(status_code=500, detail=f"Failed to fetch task logs: {exc}")
 
 
 @app.get("/tasks/{task_id}/logs_debug")
