@@ -1,6 +1,6 @@
 import os
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from .ai_logic import run_ai_coo_logic
 from .database import Base, SessionLocal, engine, get_db
 from .routers import auth, companies, integrations, sprints
 from . import models  # register models
-from .models import Task, AiTaskLog
+from .models import AiTaskLog, Task
 from .schemas import TaskCreate, TaskUpdate
 from .supabase_client import SUPABASE_AVAILABLE, supabase
 
@@ -384,10 +384,12 @@ def run_task_debug(
 
 @app.get("/tasks/{task_id}/logs")
 def get_task_logs(task_id: int, db: Session = Depends(get_db)):
+    # 1. Make sure the task exists
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    # 2. Fetch logs safely
     logs = (
         db.query(AiTaskLog)
         .filter(AiTaskLog.task_id == task_id)
@@ -395,9 +397,15 @@ def get_task_logs(task_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+    # 3. Serialize logs in a very defensive way
     result = []
     for log in logs:
-        created_at_value = log.created_at.isoformat() if log.created_at else None
+        if log is None:
+            continue
+
+        created_at_value = (
+            log.created_at.isoformat() if getattr(log, "created_at", None) else None
+        )
 
         result.append(
             {
@@ -407,11 +415,26 @@ def get_task_logs(task_id: int, db: Session = Depends(get_db)):
                 "old_status": log.old_status,
                 "new_status": log.new_status,
                 "created_at": created_at_value,
-                "has_result_text": bool(log.result_text),
+                "has_result_text": bool(getattr(log, "result_text", None)),
             }
         )
 
     return result
+
+
+@app.get("/tasks/{task_id}/logs_debug")
+def get_task_logs_debug(task_id: int, db: Session = Depends(get_db)):
+    logs = db.query(AiTaskLog).filter(AiTaskLog.task_id == task_id).all()
+
+    # Just return ID + event; no dates, no extra serialization
+    return [
+        {
+            "id": log.id,
+            "task_id": log.task_id,
+            "event": log.event,
+        }
+        for log in logs
+    ]
 
 
 def run():
