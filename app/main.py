@@ -8,7 +8,7 @@ from .routers import auth, companies, integrations, sprints
 from . import models  # register models
 from .models import Task
 from .schemas import TaskCreate, TaskUpdate
-from .supabase_client import supabase
+from .supabase_client import SUPABASE_AVAILABLE, supabase
 
 Base.metadata.create_all(bind=engine)
 
@@ -51,6 +51,12 @@ def health():
 
 @app.get("/supabase-test")
 async def supabase_test():
+    if not SUPABASE_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase is not configured on this server.",
+        )
+
     try:
         response = supabase.table("ai_tasks").select("*").limit(5).execute()
         return {
