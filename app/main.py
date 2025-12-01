@@ -1,11 +1,12 @@
 import os
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from .database import get_db, SessionLocal
 from .ai_logic import run_ai_coo_logic
-from .database import Base, SessionLocal, engine, get_db
+from .database import Base, engine
 from .routers import auth, companies, integrations, sprints
 from . import models  # register models
 from .models import AiTaskLog, Task
@@ -24,10 +25,7 @@ def log_task_event(
     old_status: str | None,
     new_status: str | None,
 ):
-    """
-    Record a single log entry for a task.
-    Does NOT commit by itself; caller decides when to commit.
-    """
+
     log = AiTaskLog(
         task_id=task.id,
         event=event,
@@ -39,18 +37,12 @@ def log_task_event(
 
 
 def process_task_in_background(task_id: int):
-    """
-    Runs in the background:
-    - loads the task by id
-    - marks it in_progress
-    - runs the AI COO logic
-    - marks it completed and logs transitions
-    """
+
     db = SessionLocal()
     try:
         task = db.get(Task, task_id)
         if not task:
-            return  # task was deleted or never existed
+            return
 
         # -> in_progress
         old_status = task.status
@@ -86,7 +78,6 @@ def process_task_in_background(task_id: int):
         db.commit()
 
     except Exception as e:
-        # Best-effort: mark task as failed and log error
         task = db.get(Task, task_id)
         if task:
             old_status = task.status
@@ -279,17 +270,13 @@ def run_task_async(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    """
-    Create a task and return immediately while the AI COO
-    processes it in the background.
-    """
+
     # 1. Create the task in "pending" state
     task = Task(
         title=payload.title,
         status="pending",
         result_text=None,
         metadata_json=payload.metadata or {},
-        # if you added these fields in Task:
         company_id=getattr(payload, "company_id", None),
         squad=getattr(payload, "squad", None),
     )
@@ -310,7 +297,7 @@ def run_task_async(
     # 2. Kick off background processing
     background_tasks.add_task(process_task_in_background, task.id)
 
-    # 3. Return the task in its initial state
+    # 3. Return immediately
     return {
         "ok": True,
         "task": {
