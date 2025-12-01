@@ -48,7 +48,7 @@ def health():
 @app.get("/supabase-test")
 async def supabase_test():
     try:
-        response = supabase.table("tasks").select("*").limit(5).execute()
+        response = supabase.table("ai_tasks").select("*").limit(5).execute()
         return {
             "ok": True,
             "count": len(response.data or []),
