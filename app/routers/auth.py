@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..config import settings
-from ..supabase_client import supabase
+from ..supabase_client import SUPABASE_AVAILABLE, supabase
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -19,6 +19,12 @@ async def login_page(request: Request):
 
 @router.post("/auth/magic-link", response_class=HTMLResponse)
 async def send_magic_link(request: Request, email: str = Form(...)):
+    if not SUPABASE_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase authentication is not configured on this server.",
+        )
+
     redirect_url = f"{settings.SITE_URL}/auth/callback"
 
     res = supabase.auth.sign_in_with_otp(
@@ -44,6 +50,12 @@ async def send_magic_link(request: Request, email: str = Form(...)):
 
 @router.get("/auth/callback")
 async def auth_callback(token_hash: str, type: str = "email"):
+    if not SUPABASE_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase authentication is not configured on this server.",
+        )
+
     verify_res = supabase.auth.verify_otp(
         {
             "token_hash": token_hash,
