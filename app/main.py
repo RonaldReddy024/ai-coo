@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -194,6 +196,23 @@ def run_task(
 
     # 4. Return the finished task
     return {"ok": True, "task": task}
+
+
+def run():
+    """Launch a development server if the module is executed directly."""
+
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", 8000)),
+        reload=bool(os.getenv("RELOAD", "False").lower() == "true"),
+    )
+
+
+if __name__ == "__main__":
+    run()
 
 
 
