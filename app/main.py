@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, BackgroundTasks, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -164,13 +164,12 @@ def process_task_in_background(task_id: int):
 @app.post("/tasks/run")
 def run_task(
     payload: TaskCreate,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    # 1. Create a new task in "pending" status
+    # 1. Create the task and mark it as in_progress
     task = Task(
         title=payload.title,
-        status="pending",
+        status="in_progress",
         result_text=None,
         metadata_json=payload.metadata or {},
     )
@@ -178,10 +177,16 @@ def run_task(
     db.commit()
     db.refresh(task)
 
-    # 2. Schedule the background processor
-    background_tasks.add_task(process_task_in_background, task.id)
+    # 2. Run the AI COO logic synchronously (with fallback)
+    result_text = run_ai_coo_logic(task)
 
-    # 3. Return immediately
+    # 3. Save the result and mark as completed
+    task.status = "completed"
+    task.result_text = result_text
+    db.commit()
+    db.refresh(task)
+
+    # 4. Return the finished task
     return {"ok": True, "task": task}
 
 
