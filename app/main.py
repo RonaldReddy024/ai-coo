@@ -45,6 +45,8 @@ def serialize_task(task: Task) -> dict:
         "id": task.id,
         "title": task.title,
         "status": task.status,
+        "company_id": task.company_id,
+        "squad": task.squad,
         "metadata_json": task.metadata_json or {},
         "result_text": task.result_text,
         "created_at": task.created_at.isoformat() if task.created_at else None,
@@ -116,6 +118,8 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
             title=task.title,
             status="pending",
             metadata_json=task.metadata or {},
+            company_id=task.company_id,
+            squad=task.squad,
         )
         db.add(db_task)
         db.commit()
@@ -139,6 +143,32 @@ async def list_tasks(limit: int = 20, db: Session = Depends(get_db)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/companies/{company_id}/tasks")
+def list_company_tasks(
+    company_id: int,
+    squad: str | None = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(Task).filter(Task.company_id == company_id)
+
+    if squad:
+        query = query.filter(Task.squad == squad)
+
+    tasks = query.order_by(Task.created_at.desc()).all()
+
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "status": t.status,
+            "squad": t.squad,
+            "metadata_json": t.metadata_json or {},
+            "created_at": t.created_at.isoformat(),
+        }
+        for t in tasks
+    ]
 
 
 @app.patch("/tasks/{task_id}")
@@ -218,6 +248,8 @@ def run_task(
         status="pending",
         result_text=None,
         metadata_json=payload.metadata or {},
+        company_id=payload.company_id,
+        squad=payload.squad,
     )
     db.add(task)
     db.commit()
@@ -284,6 +316,8 @@ def run_task_debug(
         status="pending",
         result_text=None,
         metadata_json=payload.metadata or {},
+        company_id=payload.company_id,
+        squad=payload.squad,
     )
     db.add(task)
     db.commit()
@@ -339,6 +373,8 @@ def run_task_debug(
             "id": task.id,
             "title": task.title,
             "status": task.status,
+            "company_id": task.company_id,
+            "squad": task.squad,
             "metadata_json": task.metadata_json,
             "result_text": task.result_text,
             "created_at": task.created_at.isoformat(),
