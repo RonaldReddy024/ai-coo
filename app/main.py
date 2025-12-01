@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .database import Base, engine
-from .routers import integrations, sprints, companies
+from .routers import companies, integrations, sprints, auth
 from . import models  # register models
 
 Base.metadata.create_all(bind=engine)
@@ -14,20 +14,15 @@ app = FastAPI(title="WorkYodha AI COO for SaaS")
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
 app.include_router(companies.router)
+app.include_router(auth.router, tags=["auth"])
 
 templates = Jinja2Templates(directory="app/templates")
 
 
-# Landing page
-@app.get("/", response_class=HTMLResponse)
-async def landing(request: Request):
-    return templates.TemplateResponse("landing.html", {"request": request})
-
-
-# Fake login page (no real auth yet)
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+# Landing page redirects to login for now
+@app.get("/")
+async def root_redirect():
+    return RedirectResponse(url="/login")
 
 
 # Dashboard
