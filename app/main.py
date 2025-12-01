@@ -1,10 +1,9 @@
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import FastAPI, Depends, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from .ai_logic import run_ai_coo_logic
-from .database import Base, SessionLocal, engine
-from .deps import get_db
+from .database import Base, SessionLocal, engine, get_db
 from .routers import auth, companies, integrations, sprints
 from . import models  # register models
 from .models import Task
@@ -129,7 +128,10 @@ async def update_task(task_id: int, update: TaskUpdate, db: Session = Depends(ge
 # ---------------------------
 
 def process_task_in_background(task_id: int):
-    """Runs the AI-COO logic in the background and updates the DB."""
+    """
+    Runs the AI-COO logic in the background and updates the DB.
+    This is triggered by BackgroundTasks in /tasks/run.
+    """
     db = SessionLocal()
     try:
         task = db.get(Task, task_id)
@@ -140,15 +142,16 @@ def process_task_in_background(task_id: int):
         task.status = "in_progress"
         db.commit()
 
-        # Run your AI COO logic (this can be slow)
+        # This will either call OpenAI or the local fallback, but it should NOT raise
         result_text = run_ai_coo_logic(task)
 
-        # Save result
+        # Mark as completed with result
         task.status = "completed"
         task.result_text = result_text
         db.commit()
+        
     except Exception as e:
-        # Basic failure handling
+        # Only truly unexpected errors land here
         task = db.get(Task, task_id)
         if task:
             task.status = "failed"
@@ -164,28 +167,22 @@ def run_task(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    """
-    Create a task, run AI COO logic, store result, and return updated task.
-    """
-    try:
-        # 1. Create the task as "pending"
-        task = Task(
-            title=payload.title,
-            status="pending",
-            result_text=None,
-            metadata_json=payload.metadata or {},
-        )
-        db.add(task)
-        db.commit()
-        db.refresh(task)
-       
-        # 2. Enqueue background processing
-        background_tasks.add_task(process_task_in_background, task.id)
-       
-        # 3. Return immediately
-        return {"ok": True, "task": task}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # 1. Create a new task in "pending" status
+    task = Task(
+        title=payload.title,
+        status="pending",
+        result_text=None,
+        metadata_json=payload.metadata or {},
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    # 2. Schedule the background processor
+    background_tasks.add_task(process_task_in_background, task.id)
+
+    # 3. Return immediately
+    return {"ok": True, "task": task}
 
 
 
