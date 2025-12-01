@@ -273,6 +273,79 @@ def run_task(
     }
 
 
+@app.post("/tasks/run_debug")
+def run_task_debug(
+    payload: TaskCreate,
+    db: Session = Depends(get_db),
+):
+    # 1. Create the task in "pending" state
+    task = Task(
+        title=payload.title,
+        status="pending",
+        result_text=None,
+        metadata_json=payload.metadata or {},
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    # Log creation
+    log_task_event(
+        db=db,
+        task=task,
+        event="created",
+        old_status=None,
+        new_status=task.status,
+    )
+    db.commit()
+
+    # 2. Mark as in_progress and log that
+    old_status = task.status
+    task.status = "in_progress"
+    db.commit()
+
+    log_task_event(
+        db=db,
+        task=task,
+        event="status_change",
+        old_status=old_status,
+        new_status=task.status,
+    )
+    db.commit()
+
+    # 3. Run the AI COO logic synchronously (with fallback)
+    result_text = run_ai_coo_logic(task)
+
+    # 4. Mark as completed, save result, and log final status
+    old_status = task.status
+    task.status = "completed"
+    task.result_text = result_text
+    db.commit()
+    db.refresh(task)
+
+    log_task_event(
+        db=db,
+        task=task,
+        event="status_change",
+        old_status=old_status,
+        new_status=task.status,
+    )
+    db.commit()
+
+    # 5. Return a raw dict (no Pydantic/ORM magic)
+    return {
+        "ok": True,
+        "task": {
+            "id": task.id,
+            "title": task.title,
+            "status": task.status,
+            "metadata_json": task.metadata_json,
+            "result_text": task.result_text,
+            "created_at": task.created_at.isoformat(),
+        },
+    }
+
+
 @app.get("/tasks/{task_id}/logs")
 def get_task_logs(task_id: int, db: Session = Depends(get_db)):
     task = db.get(Task, task_id)
