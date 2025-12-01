@@ -395,19 +395,23 @@ def get_task_logs(task_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # Return clean JSON instead of raw ORM objects
-    return [
-        {
-            "id": log.id,
-            "task_id": log.task_id,
-            "event": log.event,
-            "old_status": log.old_status,
-            "new_status": log.new_status,
-            "created_at": log.created_at.isoformat() if log.created_at else None,
-            "has_result_text": bool(log.result_text),
-        }
-        for log in logs
-    ]
+    result = []
+    for log in logs:
+        created_at_value = log.created_at.isoformat() if log.created_at else None
+
+        result.append(
+            {
+                "id": log.id,
+                "task_id": log.task_id,
+                "event": log.event,
+                "old_status": log.old_status,
+                "new_status": log.new_status,
+                "created_at": created_at_value,
+                "has_result_text": bool(log.result_text),
+            }
+        )
+
+    return result
 
 
 def run():
