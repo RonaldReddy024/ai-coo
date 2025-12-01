@@ -1,6 +1,6 @@
 import os
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -36,6 +36,75 @@ def log_task_event(
         result_text=task.result_text,
     )
     db.add(log)
+
+
+def process_task_in_background(task_id: int):
+    """
+    Runs in the background:
+    - loads the task by id
+    - marks it in_progress
+    - runs the AI COO logic
+    - marks it completed and logs transitions
+    """
+    db = SessionLocal()
+    try:
+        task = db.get(Task, task_id)
+        if not task:
+            return  # task was deleted or never existed
+
+        # -> in_progress
+        old_status = task.status
+        task.status = "in_progress"
+        db.commit()
+
+        log_task_event(
+            db=db,
+            task=task,
+            event="status_change",
+            old_status=old_status,
+            new_status=task.status,
+        )
+        db.commit()
+
+        # Run AI logic
+        result_text = run_ai_coo_logic(task)
+
+        # -> completed
+        old_status = task.status
+        task.status = "completed"
+        task.result_text = result_text
+        db.commit()
+        db.refresh(task)
+
+        log_task_event(
+            db=db,
+            task=task,
+            event="status_change",
+            old_status=old_status,
+            new_status=task.status,
+        )
+        db.commit()
+
+    except Exception as e:
+        # Best-effort: mark task as failed and log error
+        task = db.get(Task, task_id)
+        if task:
+            old_status = task.status
+            task.status = "failed"
+            task.result_text = f"Error while processing task in background: {e!r}"
+            db.commit()
+            db.refresh(task)
+
+            log_task_event(
+                db=db,
+                task=task,
+                event="status_change",
+                old_status=old_status,
+                new_status=task.status,
+            )
+            db.commit()
+    finally:
+        db.close()
 
 
 def serialize_task(task: Task) -> dict:
@@ -200,41 +269,60 @@ async def update_task(task_id: int, update: TaskUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------
-# AI COO RUN TASK ENDPOINT
+# AI COO RUN TASK ENDPOINTS
 # ---------------------------
 
-def process_task_in_background(task_id: int):
+
+@app.post("/tasks/run_async")
+def run_task_async(
+    payload: TaskCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     """
-    Runs the AI-COO logic in the background and updates the DB.
-    This is triggered by BackgroundTasks in /tasks/run.
+    Create a task and return immediately while the AI COO
+    processes it in the background.
     """
-    db = SessionLocal()
-    try:
-        task = db.get(Task, task_id)
-        if not task:
-            return
+    # 1. Create the task in "pending" state
+    task = Task(
+        title=payload.title,
+        status="pending",
+        result_text=None,
+        metadata_json=payload.metadata or {},
+        # if you added these fields in Task:
+        company_id=getattr(payload, "company_id", None),
+        squad=getattr(payload, "squad", None),
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
 
-        # Mark as in progress
-        task.status = "in_progress"
-        db.commit()
+    # Log creation
+    log_task_event(
+        db=db,
+        task=task,
+        event="created",
+        old_status=None,
+        new_status=task.status,
+    )
+    db.commit()
 
-        # This will either call OpenAI or the local fallback, but it should NOT raise
-        result_text = run_ai_coo_logic(task)
+    # 2. Kick off background processing
+    background_tasks.add_task(process_task_in_background, task.id)
 
-        # Mark as completed with result
-        task.status = "completed"
-        task.result_text = result_text
-        db.commit()
-        
-    except Exception as e:
-        # Only truly unexpected errors land here
-        task = db.get(Task, task_id)
-        if task:
-            task.status = "failed"
-            task.result_text = f"Unexpected error while processing task: {e}"
-            db.commit()
-    finally:
-        db.close()
+    # 3. Return the task in its initial state
+    return {
+        "ok": True,
+        "task": {
+            "id": task.id,
+            "title": task.title,
+            "status": task.status,  # pending
+            "metadata_json": task.metadata_json,
+            "created_at": task.created_at.isoformat(),
+            "company_id": getattr(task, "company_id", None),
+            "squad": getattr(task, "squad", None),
+        },
+    }
 
 
 @app.post("/tasks/run")
