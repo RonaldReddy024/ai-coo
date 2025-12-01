@@ -83,6 +83,13 @@ class Task(Base):
     metadata_json = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # NEW: multi-tenant linkage
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
+    squad = Column(String, nullable=True)  # e.g. "growth", "platform", "success"
+
+    # Optional relationship back to Company (if Company model exists)
+    company = relationship("Company", backref="tasks", lazy="joined")
+
 
 class AiTaskLog(Base):
     __tablename__ = "ai_task_logs"
