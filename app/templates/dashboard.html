@@ -420,6 +420,40 @@
             border-color: #374151;
             opacity: 0.9;        /* or remove this line if you don't want any visual change */
         }
+
+        .alerts-section {
+            margin-top: 16px;
+        }
+
+        .alert-item {
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        .alert-item.info {
+            border: 1px solid rgba(0, 150, 255, 0.35);
+            background: rgba(0, 150, 255, 0.08);
+        }
+
+        .alert-item.warning {
+            border: 1px solid rgba(255, 180, 0, 0.35);
+            background: rgba(255, 180, 0, 0.1);
+        }
+
+        .alert-item.critical {
+            border: 1px solid rgba(255, 60, 60, 0.5);
+            background: rgba(255, 60, 60, 0.12);
+        }
+
+        .alert-item .alert-tag {
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            opacity: 0.8;
+            margin-right: 6px;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -478,6 +512,15 @@
           <div id="issue-detail" class="issue-detail hidden">
             <h4 id="issue-detail-title">Issue details</h4>
             <p id="issue-detail-text"></p>
+          </div>
+
+          <hr />
+
+          <div id="alerts-section" class="alerts-section">
+            <h3>Alerts</h3>
+            <div id="alerts-list">
+              <p class="empty-state">Select a sprint to see alerts.</p>
+            </div>
           </div>
 
           <hr />
@@ -703,6 +746,9 @@
 
     // 4) Update burndown chart for this sprint
     updateBurndownChart(sprint);
+
+    // 5) Update alerts panel
+    updateAlertsForSprint(sprintId);
   }
 
   function renderIssues(issues) {
@@ -820,6 +866,44 @@
           },
         },
       },
+    });
+  }
+
+  async function updateAlertsForSprint(sprintId) {
+    const alertsList = document.getElementById("alerts-list");
+    alertsList.innerHTML = "<p class='empty-state'>Loading alerts…</p>";
+
+    const res = await fetch(`/sprints/${sprintId}/alerts`);
+    if (!res.ok) {
+      console.error("Failed to fetch alerts", await res.text());
+      alertsList.innerHTML = "<p class='empty-state'>Could not load alerts.</p>";
+      return;
+    }
+
+    const alerts = await res.json();
+
+    if (!alerts.length) {
+      alertsList.innerHTML = "<p class='empty-state'>No alerts for this sprint. All clear ✅</p>";
+      return;
+    }
+
+    alertsList.innerHTML = "";
+
+    alerts.forEach((a) => {
+      const div = document.createElement("div");
+      div.className = `alert-item ${a.level}`;
+
+      const tag = document.createElement("span");
+      tag.className = "alert-tag";
+      tag.textContent = a.type.toUpperCase();
+
+      const msg = document.createElement("span");
+      msg.textContent = " " + a.message;
+
+      div.appendChild(tag);
+      div.appendChild(msg);
+
+      alertsList.appendChild(div);
     });
   }
 
