@@ -7,5 +7,6 @@ pydantic
 pydantic-settings
 apscheduler
 supabase-py
+python-dotenv
 
 openai
