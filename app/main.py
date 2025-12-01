@@ -384,12 +384,7 @@ def run_task_debug(
 
 @app.get("/tasks/{task_id}/logs")
 def get_task_logs(task_id: int, db: Session = Depends(get_db)):
-    # 1. Make sure the task exists
-    task = db.get(Task, task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    # 2. Fetch logs safely
+    # Do NOT load Task here (table schema mismatch on company_id)
     logs = (
         db.query(AiTaskLog)
         .filter(AiTaskLog.task_id == task_id)
@@ -397,7 +392,10 @@ def get_task_logs(task_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # 3. Serialize logs in a very defensive way
+    # If you want a 404 when no logs exist:
+    if not logs:
+        raise HTTPException(status_code=404, detail="No logs found for this task")
+
     result = []
     for log in logs:
         if log is None:
