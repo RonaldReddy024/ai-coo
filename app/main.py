@@ -1,7 +1,8 @@
+from typing import Any, Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
-from typing import Any, Optional
 
 from .database import Base, engine
 from .routers import companies, integrations, sprints, auth
