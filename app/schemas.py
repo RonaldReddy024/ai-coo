@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -104,6 +104,33 @@ class Issue(IssueBase):
     key: str
     sprint_id: int
     updated_at: datetime
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------- Task Schemas ----------
+
+
+class TaskBase(BaseModel):
+    title: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class TaskCreate(TaskBase):
+    pass
+
+
+class TaskUpdate(BaseModel):
+    status: Optional[str] = None
+    result_text: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class Task(TaskBase):
+    id: int
+    status: str
+    result_text: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
