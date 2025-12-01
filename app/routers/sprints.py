@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,7 +8,7 @@ from ..deps import get_db
 from .. import models
 from ..schemas import Sprint, SprintWithIssues
 from ..schemas import Issue as IssueSchema
-from ..schemas import IssueCreate, SprintCreate, SprintRiskReport
+from ..schemas import IssueCreate, SprintAlert, SprintCreate, SprintRiskReport
 
 router = APIRouter()
 
@@ -141,6 +141,95 @@ def generate_risk_explanation(sprint: models.Sprint) -> tuple[str, str]:
     return summary, details
 
 
+def generate_alerts_for_sprint(sprint: models.Sprint) -> list[SprintAlert]:
+    alerts: list[SprintAlert] = []
+
+    now = datetime.utcnow()
+    issues = sprint.issues or []
+    open_issues = [i for i in issues if i.status.lower() not in ("done", "resolved", "closed")]
+    blockers = [i for i in open_issues if i.is_blocker]
+
+    # 1) High risk sprint
+    if sprint.risk_level == "high":
+        alerts.append(SprintAlert(
+            type="risk",
+            level="critical",
+            message=f"Sprint '{sprint.name}' is at HIGH risk based on current progress vs. time."
+        ))
+    elif sprint.risk_level == "medium":
+        alerts.append(SprintAlert(
+            type="risk",
+            level="warning",
+            message=f"Sprint '{sprint.name}' is at MEDIUM risk and should be monitored closely."
+        ))
+
+    # 2) Blockers open > 1 day
+    for blk in blockers:
+        if blk.updated_at:
+            age = now - blk.updated_at
+        elif blk.created_at:
+            age = now - blk.created_at
+        else:
+            age = timedelta(days=0)
+
+        if age >= timedelta(days=1):
+            alerts.append(SprintAlert(
+                type="blocker",
+                level="critical",
+                message=(
+                    f"Blocker '{blk.key}: {blk.title}' has been open for about "
+                    f"{age.days} day(s). It may be blocking other work."
+                ),
+            ))
+        else:
+            alerts.append(SprintAlert(
+                type="blocker",
+                level="warning",
+                message=f"Blocker '{blk.key}: {blk.title}' is still open and should be prioritised."
+            ))
+
+    # 3) Sprint ending soon with open issues
+    days_left = (sprint.end_date - now).days
+    if days_left <= 2 and days_left >= 0 and open_issues:
+        alerts.append(SprintAlert(
+            type="deadline",
+            level="warning",
+            message=(
+                f"Sprint ends in {days_left} day(s) and there are still "
+                f"{len(open_issues)} open issue(s)."
+            ),
+        ))
+    elif days_left < 0 and open_issues:
+        alerts.append(SprintAlert(
+            type="deadline",
+            level="critical",
+            message=(
+                f"Sprint has passed its end date and there are still "
+                f"{len(open_issues)} open issue(s)."
+            ),
+        ))
+
+    # 4) Overloaded assignees (4+ open issues)
+    assignee_counts: dict[str, int] = {}
+    for i in open_issues:
+        if not i.assignee:
+            continue
+        assignee_counts[i.assignee] = assignee_counts.get(i.assignee, 0) + 1
+
+    overloaded = [a for a, cnt in assignee_counts.items() if cnt >= 4]
+    for a in overloaded:
+        alerts.append(SprintAlert(
+            type="assignee",
+            level="info",
+            message=(
+                f"{a} currently has {assignee_counts[a]} open issues in this sprint; "
+                "consider redistributing workload."
+            ),
+        ))
+
+    return alerts
+
+
 # ---------- Sprints CRUD / listing ----------
 
 @router.post("/", response_model=Sprint)
@@ -260,6 +349,28 @@ def get_sprint(sprint_id: int, db: Session = Depends(get_db)):
     db.refresh(sprint)
 
     return sprint
+
+
+@router.get("/{sprint_id}/alerts", response_model=List[SprintAlert])
+def get_sprint_alerts(sprint_id: int, db: Session = Depends(get_db)):
+    sprint = (
+        db.query(models.Sprint)
+        .filter_by(id=sprint_id)
+        .first()
+    )
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+
+    # Ensure issues are loaded
+    _ = sprint.issues
+
+    # Recompute risk so alerts are up to date
+    compute_risk_for_sprint(sprint)
+    db.commit()
+    db.refresh(sprint)
+
+    alerts = generate_alerts_for_sprint(sprint)
+    return alerts
 
 
 @router.get("/risk/{sprint_id}", response_model=SprintRiskReport)
