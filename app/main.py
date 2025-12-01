@@ -26,7 +26,7 @@ def log_task_event(
 ):
     """
     Record a single log entry for a task.
-    Does NOT commit by itself so it can be composed with other DB work.
+    Does NOT commit by itself; caller decides when to commit.
     """
     log = AiTaskLog(
         task_id=task.id,
