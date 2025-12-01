@@ -76,6 +76,14 @@ class SprintRiskReport(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SprintAlert(BaseModel):
+    type: str        # e.g. "risk", "blocker", "deadline", "assignee"
+    level: str       # "info", "warning", "critical"
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ---------- Issue Schemas ----------
 
 class IssueBase(BaseModel):
