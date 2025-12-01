@@ -118,7 +118,9 @@ class TaskBase(BaseModel):
 
 
 class TaskCreate(TaskBase):
-    pass
+    # NEW: multi-tenant fields
+    company_id: Optional[int] = None
+    squad: Optional[str] = None
 
 
 class TaskUpdate(BaseModel):
@@ -132,5 +134,7 @@ class Task(TaskBase):
     status: str
     result_text: Optional[str] = None
     created_at: datetime
-
+    company_id: Optional[int] = None
+    squad: Optional[str] = None
+    
     model_config = ConfigDict(from_attributes=True)
