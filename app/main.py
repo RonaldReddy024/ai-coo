@@ -134,9 +134,6 @@ app.include_router(companies.router)
 app.include_router(auth.router, tags=["auth"])
 
 
-# Landing page serves the task dashboard
-@app.get("/", response_class=HTMLResponse)
-
 @app.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard():
     html_path = Path(__file__).parent / "dashboard.html"
