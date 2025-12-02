@@ -1,6 +1,7 @@
 import os
+from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -207,6 +208,10 @@ def list_tasks(
     db: Session = Depends(get_db),
     company_id: int | None = None,
     squad: str | None = None,
+    status: Optional[str] = Query(
+        None,
+        description="Filter by status: pending, in_progress, completed, failed",
+    ),
     limit: int = 50,
 ):
     query = db.query(Task).order_by(Task.created_at.desc())
@@ -214,7 +219,8 @@ def list_tasks(
         query = query.filter(Task.company_id == company_id)
     if squad is not None:
         query = query.filter(Task.squad == squad)
-
+    if status is not None:
+        query = query.filter(Task.status == status)
     tasks = query.limit(limit).all()
     return {"ok": True, "tasks": [serialize_task(t) for t in tasks]}
 
