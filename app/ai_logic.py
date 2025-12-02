@@ -7,37 +7,31 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def build_local_fallback_plan(title: str, metadata: Dict[str, Any]) -> str:
-    team = metadata.get("team", "the relevant team")
-    priority = metadata.get("priority", "normal")
-    due_date = metadata.get("due_date", "unspecified")
+    return f"""Summary: Execution plan for '{title}' (local fallback, external AI unavailable).
 
-    lines = [
-        f"Summary: Execution plan for '{title}' (local fallback, external AI unavailable).",
-        "",
-        "Steps:",
-        f"- Confirm scope and success criteria with stakeholders in {team}.",
-        f"- Log this task into your tracking tool with priority '{priority}'.",
-        "- Identify 5–10 key KPIs and where their data lives (BI tool, data warehouse, etc.).",
-        "- Pull recent KPI data (last 4–12 weeks) and check for trends and anomalies.",
-        "- Draft a concise report or slide deck summarizing current status and key insights.",
-        f"- Review the report with {team} and finalize before {due_date}.",
-        "",
-        "Risks:",
-        "- Data might be incomplete, inconsistent, or delayed.",
-        "- Stakeholders may not align on what KPIs matter most.",
-        "- Tight timelines may limit depth of analysis.",
-        "",
-        "DataNeeded:",
-        "- Recent KPI dashboards or exports.",
-        "- Targets/OKRs from leadership.",
-        "- Any existing KPI definitions or documentation.",
-        "",
-        "Note:",
-        "- External AI provider is currently unavailable (e.g. quota, network, or config issue).",
-        "- Used the built-in local playbook instead.",
-    ]
+All financial metrics below are in Rupees (₹).
 
-    return "\n".join(lines)
+Steps:
+- Confirm scope and success criteria with stakeholders in the relevant team.
+- Log this task into your tracking tool with priority 'normal'.
+- Identify 5–10 key KPIs such as weekly revenue (₹), CAC (₹), retention, and churn.
+- Pull recent KPI data (last 4–12 weeks) and check for trends, anomalies, and spending in Rupees.
+- Draft a concise report or slide deck summarizing performance with Rupee-based numbers.
+- Review the report with the relevant team and finalize.
+
+Risks:
+- Data might be incomplete, inconsistent, or delayed.
+- Stakeholders may not align on which Rupee-based KPIs matter most.
+- Tight timelines may limit depth of analysis.
+
+DataNeeded:
+- Recent KPI dashboards or exports (₹).
+- Targets/OKRs from leadership.
+- Any existing KPI definitions or documentation.
+
+Note:
+- External AI provider is currently unavailable.
+- Used the built-in local playbook instead."""
 
 
 def run_ai_coo_logic(task) -> str:
