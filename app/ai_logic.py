@@ -6,13 +6,13 @@ from openai import OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def build_local_fallback_plan(title: str, metadata: Dict[str, Any], error: str) -> str:
+def build_local_fallback_plan(title: str, metadata: Dict[str, Any]) -> str:
     team = metadata.get("team", "the relevant team")
     priority = metadata.get("priority", "normal")
     due_date = metadata.get("due_date", "unspecified")
 
     lines = [
-        f"Summary: Execution plan for '{title}' (local fallback, no external AI).",
+        f"Summary: Execution plan for '{title}' (local fallback, external AI unavailable).",
         "",
         "Steps:",
         f"- Confirm scope and success criteria with stakeholders in {team}.",
@@ -33,7 +33,8 @@ def build_local_fallback_plan(title: str, metadata: Dict[str, Any], error: str) 
         "- Any existing KPI definitions or documentation.",
         "",
         "Note:",
-        f"- Real AI COO call failed with error: {error}",
+        "- External AI provider is currently unavailable (e.g. quota, network, or config issue).",
+        "- Used the built-in local playbook instead.",
     ]
 
     return "\n".join(lines)
@@ -71,5 +72,5 @@ Metadata: {metadata}
 
     except Exception as e:
         # Fallback: no crash, just a local structured plan
-        error_text = str(e)
-        return build_local_fallback_plan(title, metadata, error_text)
+        print(f"[AI-COO] External provider error: {e!r}")
+        return build_local_fallback_plan(title, metadata)
