@@ -119,21 +119,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #020617;
-      border: 1px solid #1f2937;
-      font-size: 11px;
-      color: #9ca3af;
-    }
-    .pill span.key {
-      color: #e5e7eb;
-      font-weight: 500;
-    }
     .small {
       font-size: 11px;
       color: #9ca3af;
@@ -261,7 +246,7 @@
             row.appendChild(idCell);
 
             const titleCell = document.createElement("td");
-            const squad = t.squad || (t.metadata && t.metadata.squad) || (t.metadata_json && t.metadata_json.squad);
+            const squad = t.squad || (t.metadata && t.metadata.squad);
             titleCell.innerHTML = `
               <div>${t.title || "-"}</div>
               ${squad ? `<div class="small">Squad: <span class="mono">${squad}</span></div>` : ""}
@@ -278,9 +263,9 @@
             row.appendChild(statusCell);
 
             const companyCell = document.createElement("td");
-            const company = t.company_id || t.company || (t.metadata && t.metadata.company_id) || (t.metadata_json && t.metadata_json.company_id);
+            const company = t.company_id || t.company || (t.metadata && t.metadata.company_id);
             companyCell.innerHTML = company
-              ? `<span class="pill"><span class="key">ID</span> <span>${company}</span></span>`
+              ? `<span class="small">ID ${company}</span>
               : `<span class="small">-</span>`;
             row.appendChild(companyCell);
 
@@ -332,7 +317,6 @@
 
     document.getElementById("refreshBtn").addEventListener("click", loadTasks);
 
-    // Initial load + auto-refresh
     loadTasks();
     setInterval(loadTasks, 5000);
   </script>
