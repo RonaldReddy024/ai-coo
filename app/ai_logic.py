@@ -65,6 +65,30 @@ Metadata: {metadata}
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        # Fallback: no crash, just a local structured plan
-        print(f"[AI-COO] External provider error: {e!r}")
-        return build_local_fallback_plan(title, metadata)
+        print("[AI-COO] External provider error:", e)
+
+        return f"""Summary: Execution plan for '{task.title}' (local fallback, external AI unavailable).
+
+Currency: INR (₹)
+
+Steps:
+- Confirm scope and success criteria with stakeholders in the relevant team.
+- Log this task into your tracking tool with priority 'normal'.
+- Identify 5–10 key KPIs and where their data lives (BI tool, data warehouse, etc.).
+- Pull recent KPI data (₹ amounts) for the last 4–12 weeks, and check for trends and anomalies.
+- Draft a concise report or slide deck summarizing current status and key insights.
+- Review the report with the relevant team and finalize next steps.
+
+Risks:
+- Data might be incomplete, inconsistent, or delayed.
+- Stakeholders may not align on which KPIs matter most.
+- Tight timelines may limit the depth of analysis.
+
+DataNeeded:
+- Recent KPI dashboards or exports (₹ values).
+- Targets/OKRs from leadership.
+- Any existing KPI definitions or documentation.
+
+Note:
+- External AI provider is currently unavailable (quota, network, or configuration issue).
+- Used the built-in local INR-based playbook instead."""
