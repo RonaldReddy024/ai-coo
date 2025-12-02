@@ -1,8 +1,9 @@
 import os
+from pathlib import Path
 from typing import Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from .database import get_db, SessionLocal
@@ -133,26 +134,13 @@ app.include_router(companies.router)
 app.include_router(auth.router, tags=["auth"])
 
 
-# Landing page redirects to login for now
-@app.get("/")
-async def root_redirect():
-    return RedirectResponse(url="/login")
+# Landing page serves the task dashboard
+@app.get("/", response_class=HTMLResponse)
 
-
-# Dashboard placeholder
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard():
-    return """
-    <html>
-      <head><title>AI COO Dashboard</title></head>
-      <body style=\"font-family: system-ui; background:#020617; color:#e5e7eb;\">
-        <h1>WorkYodha AI COO</h1>
-        <p>You are logged in via Supabase magic link ✅</p>
-        <p>We’ll replace this with the real sprint dashboard later.</p>
-        <a href=\"/sprints-dashboard\" style=\"color:#a855f7;\">Go to Sprint Risks</a>
-      </body>
-    </html>
-    """
+async def serve_dashboard():
+    html_path = Path(__file__).parent / "dashboard.html"
+    return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
 # Optional: simple health endpoint
