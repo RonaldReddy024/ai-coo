@@ -1,1226 +1,320 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>WorkYodha AI COO – Sprint Risk Dashboard</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: #0f172a;
-            color: #e5e7eb;
-        }
-
-        .layout {
-            display: grid;
-            grid-template-columns: 2fr 1.3fr;
-            min-height: 100vh;
-        }
-
-        .panel {
-            padding: 24px;
-            box-sizing: border-box;
-        }
-
-        .panel-left {
-            border-right: 1px solid #1f2937;
-        }
-
-        h1 {
-            margin: 0 0 12px;
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        h2 {
-            margin: 24px 0 8px;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #9ca3af;
-        }
-
-        .subtitle {
-            color: #9ca3af;
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-
-        /* Top bar: filters + button */
-        .top-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-
-        .select-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .select-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #9ca3af;
-        }
-
-        .filter-select {
-            padding: 6px 8px;
-            border-radius: 999px;
-            border: 1px solid #374151;
-            background: #020617;
-            color: #e5e7eb;
-            font-size: 13px;
-            outline: none;
-        }
-
-        .filter-select:focus {
-            border-color: #6366f1;
-        }
-
-        .button-primary {
-            padding: 8px 14px;
-            border-radius: 999px;
-            border: none;
-            font-size: 13px;
-            font-weight: 600;
-            background: #6366f1;
-            color: white;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .button-primary:hover {
-            background: #4f46e5;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-        }
-
-        th, td {
-            padding: 10px 12px;
-            text-align: left;
-            font-size: 14px;
-        }
-
-        th {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #9ca3af;
-            border-bottom: 1px solid #1f2937;
-        }
-
-        tr {
-            cursor: pointer;
-            transition: background 0.15s ease;
-        }
-
-        tr:nth-child(even) {
-            background: #020617;
-        }
-
-        tr:hover {
-            background: #111827;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .badge-low {
-            background: rgba(34, 197, 94, 0.1);
-            color: #22c55e;
-        }
-
-        .badge-medium {
-            background: rgba(234, 179, 8, 0.1);
-            color: #eab308;
-        }
-
-        .badge-high {
-            background: rgba(239, 68, 68, 0.1);
-            color: #f97373;
-        }
-
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: #020617;
-            border: 1px solid #1f2937;
-            font-size: 11px;
-            color: #9ca3af;
-            margin-right: 8px;
-        }
-
-        .pill span {
-            font-weight: 600;
-            color: #e5e7eb;
-            margin-left: 4px;
-        }
-
-        /* Pointer anywhere inside sprint list */
-        #sprint-list * {
-            cursor: pointer;
-        }
-
-        .card {
-            border-radius: 16px;
-            background: #020617;
-            border: 1px solid #1f2937;
-            padding: 16px 18px;
-            box-sizing: border-box;
-        }
-
-        .risk-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .risk-score {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .risk-explanation {
-            font-size: 14px;
-            line-height: 1.6;
-            color: #d1d5db;
-            white-space: pre-wrap;
-        }
-
-        .muted {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 8px;
-        }
-
-        .empty-state {
-            padding: 24px;
-            text-align: center;
-            border-radius: 16px;
-            background: #020617;
-            border: 1px dashed #374151;
-            color: #9ca3af;
-            font-size: 14px;
-        }
-
-        .selected-row {
-            outline: 1px solid #6366f1;
-            outline-offset: -1px;
-        }
-
-        .risk-panel {
-            border-radius: 16px;
-            background: #020617;
-            border: 1px solid #1f2937;
-            padding: 16px 18px;
-            box-sizing: border-box;
-        }
-
-        .issues-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 12px;
-            margin-bottom: 8px;
-        }
-
-        .small-btn {
-            padding: 6px 10px;
-            border-radius: 10px;
-            border: 1px solid #374151;
-            background: #111827;
-            color: #e5e7eb;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .small-btn:hover {
-            background: #1f2937;
-        }
-
-        .issues-list {
-            border: 1px solid #1f2937;
-            border-radius: 12px;
-            padding: 10px;
-            background: #0b1224;
-        }
-
-        .issue-item:hover {
-            background: #ececec;
-        }
-
-        .issue-row {
-            padding: 8px 10px;
-            border-bottom: 1px solid #1f2937;
-        }
-
-        .issue-row:last-child {
-            border-bottom: none;
-        }
-
-        .issue-title {
-            font-weight: 600;
-        }
-
-        .issue-meta {
-            color: #9ca3af;
-            font-size: 12px;
-        }
-        /* Make issue rows clickable, but keep original styling */
-        .issue-row {
-            cursor: pointer;
-        }
-
-        .issue-row:hover {
-            opacity: 0.95;       /* subtle hover; optional */
-        }
-
-        .issue-detail {
-            margin-top: 16px;
-            padding: 12px 14px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .issue-detail.hidden {
-            display: none;
-        }
-
-        .issue-detail h4 {
-            margin: 0 0 6px 0;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            opacity: 0.8;
-        }
-
-        .issue-detail p {
-            margin: 0;
-            font-size: 0.9rem;
-            line-height: 1.4;
-            opacity: 0.9;
-        }
-
-        .checkbox-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 8px 0;
-        }
-
-        /* Modal */
-
-        .modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-        }
-
-        .modal.hidden {
-            display: none;
-        }
-
-        .modal-content {
-            width: 100%;
-            max-width: 420px;
-            background: #020617;
-            border-radius: 16px;
-            border: 1px solid #1f2937;
-            padding: 20px 22px;
-            box-sizing: border-box;
-        }
-
-        .modal-content label {
-            display: block;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: #9ca3af;
-            margin-bottom: 4px;
-        }
-
-        .modal-content input,
-        .modal-content select {
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 10px;
-            border: 1px solid #374151;
-            background: #020617;
-            color: #e5e7eb;
-            font-size: 13px;
-            box-sizing: border-box;
-            margin-bottom: 12px;
-        }
-
-        .modal-content input:focus,
-        .modal-content select:focus {
-            outline: none;
-            border-color: #6366f1;
-        }
-
-        .form-actions {
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .button-secondary {
-            padding: 8px 12px;
-            border-radius: 999px;
-            border: 1px solid #374151;
-            background: #020617;
-            color: #e5e7eb;
-            font-size: 13px;
-            cursor: pointer;
-        }
-
-        .button-secondary:hover {
-            background: #111827;
-        }
-
-        .sprint-row {
-            padding: 12px 14px;
-            border: 1px solid #1f2937;
-            border-radius: 12px;
-            background: #020617;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: background 0.15s ease, border-color 0.15s ease;
-        }
-
-        .sprint-row:hover {
-            background: #111827;
-            border-color: #374151;
-            opacity: 0.9;        /* or remove this line if you don't want any visual change */
-        }
-
-        .alerts-section {
-            margin-top: 16px;
-        }
-
-        .alert-item {
-            padding: 8px 10px;
-            border-radius: 6px;
-            margin-bottom: 6px;
-            font-size: 0.9rem;
-        }
-
-        .alert-item.info {
-            border: 1px solid rgba(0, 150, 255, 0.35);
-            background: rgba(0, 150, 255, 0.08);
-        }
-
-        .alert-item.warning {
-            border: 1px solid rgba(255, 180, 0, 0.35);
-            background: rgba(255, 180, 0, 0.1);
-        }
-
-        .alert-item.critical {
-            border: 1px solid rgba(255, 60, 60, 0.5);
-            background: rgba(255, 60, 60, 0.12);
-        }
-
-        .alert-item .alert-tag {
-            text-transform: uppercase;
-            font-size: 0.7rem;
-            letter-spacing: 0.08em;
-            opacity: 0.8;
-            margin-right: 6px;
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <title>WorkYodha AI COO – Task Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    header span {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    main {
+      padding: 16px 24px 32px;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    button {
+      cursor: pointer;
+      border-radius: 999px;
+      border: none;
+      padding: 8px 14px;
+      font-size: 13px;
+      background: #ec4899;
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .status-pill {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      display: inline-block;
+    }
+    .status-pending { background: #1f2937; color: #fbbf24; }
+    .status-running { background: #1d4ed8; color: #e5e7eb; }
+    .status-completed { background: #065f46; color: #bbf7d0; }
+    .status-failed { background: #7f1d1d; color: #fecaca; }
+    .status-other { background: #374151; color: #e5e7eb; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #020617;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+    }
+    thead {
+      background: #020617;
+    }
+    th, td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid #111827;
+      vertical-align: top;
+    }
+    th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9ca3af;
+      background: #020617;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:hover td {
+      background: #020617;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .result-text {
+      max-width: 420px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .metadata {
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .small {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+    .error {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #fecaca;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #111827;
+      color: #9ca3af;
+      border: 1px solid #1f2937;
+    }
+  </style>
 </head>
 <body>
-<div class="layout">
-    <!-- LEFT: Sprint list + filters -->
-    <div class="panel panel-left">
-        <h1>WorkYodha AI COO – Sprint Risks</h1>
-        <div class="subtitle">
-            Monitor sprint health across projects. Use filters to focus on a company or project, then click a sprint to see a detailed AI risk explanation powered by WorkYodha.
-        </div>
+  <header>
+    <div>
+      <h1>WorkYodha AI COO – Task Dashboard</h1>
+      <span>Live view of tasks from <code class="mono">/tasks</code></span>
+    </div>
+    <div>
+      <span class="badge">v0.1 – local only</span>
+    </div>
+  </header>
 
-        <div class="top-bar">
-            <div class="select-wrapper">
-                <span class="select-label">Company</span>
-                <select id="company-filter" class="filter-select">
-                    <option value="">All companies</option>
-                </select>
-            </div>
-            <div class="select-wrapper">
-                <span class="select-label">Project</span>
-                <select id="project-filter" class="filter-select">
-                    <option value="">All projects</option>
-                </select>
-            </div>
-            <button class="button-primary" id="create-sprint-btn">
-                + Create sprint
-            </button>
-        </div>
-
-        <h2>Sprints</h2>
-        <div id="sprint-list" aria-live="polite"></div>
+  <main>
+    <div class="toolbar">
+      <button id="refreshBtn">
+        🔄 Refresh now
+      </button>
+      <span class="small" id="lastUpdated">Last updated: never</span>
+      <span class="small">• Auto-refresh every 5s</span>
     </div>
 
-    <!-- RIGHT: Risk details -->
-    <div class="panel">
-        <div class="risk-panel">
-          <h2 id="risk-title">Select a sprint to see details</h2>
-          <p id="risk-text">
-            This panel shows a natural-language explanation of why a sprint
-            is considered low, medium, or high risk.
-          </p>
+    <div id="error" class="error" style="display:none;"></div>
 
-          <hr />
-
-          <div id="issues-section">
-            <div class="issues-header">
-              <h3>Issues</h3>
-              <button id="add-issue-btn" class="small-btn">+ Add issue</button>
-            </div>
-            <div id="issues-list" class="issues-list">
-              <p class="empty-state">No sprint selected.</p>
-            </div>
-          </div>
-
-          <div id="issue-detail" class="issue-detail hidden">
-            <h4 id="issue-detail-title">Issue details</h4>
-            <p id="issue-detail-text"></p>
-          </div>
-
-          <hr />
-
-          <div id="alerts-section" class="alerts-section">
-            <h3>Alerts</h3>
-            <div id="alerts-list">
-              <p class="empty-state">Select a sprint to see alerts.</p>
-            </div>
-          </div>
-
-          <hr />
-
-          <div id="charts-section">
-            <h3>Burndown</h3>
-            <canvas id="burndown-chart" height="120"></canvas>
-
-            <h3 style="margin-top: 24px;">Velocity (done issues / day)</h3>
-            <canvas id="velocity-chart" height="120"></canvas>
-          </div>
-        </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title / Squad</th>
+            <th>Status</th>
+            <th>Company</th>
+            <th>Result</th>
+            <th>Metadata</th>
+            <th>Timestamps</th>
+          </tr>
+        </thead>
+        <tbody id="tasksBody">
+          <tr>
+            <td colspan="7" style="text-align:center; padding:16px;">Loading tasks…</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-</div>
+  </main>
 
-<!-- Create Sprint Modal -->
-<div id="create-sprint-modal" class="modal hidden">
-  <div class="modal-content">
-    <h2>Create new sprint</h2>
+  <script>
+    const API_BASE = ""; // same origin
 
-    <!-- PROJECT -->
-    <label for="modal-project-select">Project</label>
-    <select id="modal-project-select">
-      <option value="">Select a project</option>
-    </select>
-
-    <!-- NAME -->
-    <label for="modal-sprint-name">Sprint name</label>
-    <input id="modal-sprint-name" type="text" placeholder="e.g. Sprint 12 – Checkout revamp">
-
-    <!-- START DATE -->
-    <label for="modal-start-date">Start date</label>
-    <input id="modal-start-date" type="date">
-
-    <!-- END DATE -->
-    <label for="modal-end-date">End date</label>
-    <input id="modal-end-date" type="date">
-
-    <div class="modal-actions">
-      <button id="modal-cancel-btn" class="button-secondary">Cancel</button>
-      <button id="modal-create-btn" class="button-primary">Create sprint</button>
-    </div>
-  </div>
-</div>
-
-<!-- Create Issue Modal -->
-<div id="create-issue-modal" class="modal hidden">
-  <div class="modal-content">
-    <h2>Create new issue</h2>
-
-    <label for="issue-title">Title</label>
-    <input id="issue-title" type="text" placeholder="e.g. Fix DB migration bug" />
-
-    <label for="issue-status">Status</label>
-    <select id="issue-status">
-      <option value="To Do">To Do</option>
-      <option value="In Progress">In Progress</option>
-      <option value="Review">Review</option>
-      <option value="Done">Done</option>
-    </select>
-
-    <label for="issue-assignee">Assignee</label>
-    <input id="issue-assignee" type="text" placeholder="e.g. Ronald" />
-
-    <label class="checkbox-row">
-      <input id="issue-blocker" type="checkbox" />
-      <span>Is blocker?</span>
-    </label>
-
-    <div class="modal-actions">
-      <button id="issue-cancel-btn">Cancel</button>
-      <button id="issue-create-btn">Create issue</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  const companyFilter = document.getElementById("company-filter");
-  const projectFilter = document.getElementById("project-filter");
-  const sprintList = document.getElementById("sprint-list");
-
-  const createSprintBtn = document.getElementById("create-sprint-btn");
-  const modal = document.getElementById("create-sprint-modal");
-  const modalProjectSelect = document.getElementById("modal-project-select");
-  const modalSprintName = document.getElementById("modal-sprint-name");
-  const modalStartDate = document.getElementById("modal-start-date");
-  const modalEndDate = document.getElementById("modal-end-date");
-  const modalCancelBtn = document.getElementById("modal-cancel-btn");
-  const modalCreateBtn = document.getElementById("modal-create-btn");
-
-  let currentSprintId = null;
-  let currentSprintData = null;
-  let currentIssuesById = {};
-  let burndownChart = null;
-  let velocityChart = null;
-    
-  const issuesList = document.getElementById("issues-list");
-  const addIssueBtn = document.getElementById("add-issue-btn");
-
-  const issueModal = document.getElementById("create-issue-modal");
-  const issueTitleInput = document.getElementById("issue-title");
-  const issueStatusSelect = document.getElementById("issue-status");
-  const issueAssigneeInput = document.getElementById("issue-assignee");
-  const issueBlockerCheckbox = document.getElementById("issue-blocker");
-  const issueCancelBtn = document.getElementById("issue-cancel-btn");
-  const issueCreateBtn = document.getElementById("issue-create-btn");
-
-  // ====== LOAD COMPANIES & PROJECTS ======
-
-  async function loadCompanies() {
-    const res = await fetch("/companies");
-    const companies = await res.json();
-
-    companyFilter.innerHTML = '<option value="">All companies</option>';
-    companies.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = c.name;
-      companyFilter.appendChild(opt);
-    });
-  }
-
-  async function loadProjectsForCompany(companyId) {
-    if (!companyId) {
-      projectFilter.innerHTML = '<option value="">All projects</option>';
-      modalProjectSelect.innerHTML = '<option value="">Select a project</option>';
-      return;
+    function getStatusClass(status) {
+      if (!status) return "status-other";
+      const s = String(status).toLowerCase();
+      if (s === "pending") return "status-pending";
+      if (s === "running" || s === "in_progress") return "status-running";
+      if (s === "completed" || s === "done") return "status-completed";
+      if (s === "failed" || s === "error") return "status-failed";
+      return "status-other";
     }
 
-    const res = await fetch(`/companies/${companyId}/projects`);
-    const projects = await res.json();
-
-    projectFilter.innerHTML = '<option value="">All projects</option>';
-    projects.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = p.name;
-      projectFilter.appendChild(opt);
-    });
-
-    modalProjectSelect.innerHTML = '<option value="">Select a project</option>';
-    projects.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = p.name;
-      modalProjectSelect.appendChild(opt);
-    });
-  }
-
-  // ====== LOAD SPRINTS FOR CURRENT FILTERS ======
-
-  async function loadSprints() {
-    const companyId = companyFilter.value;
-    const projectId = projectFilter.value;
-
-    let url = "/sprints";
-    const params = [];
-    if (companyId) params.push(`company_id=${companyId}`);
-    if (projectId) params.push(`project_id=${projectId}`);
-    if (params.length) url += "?" + params.join("&");
-
-    const res = await fetch(url);
-    const sprints = await res.json();
-
-    sprintList.innerHTML = "";
-    if (!sprints.length) {
-      sprintList.innerHTML = "<div class='empty-state'>No sprints found</div>";
-      return;
+    function normalizeTasks(raw) {
+      if (Array.isArray(raw)) return raw;
+      if (raw && Array.isArray(raw.tasks)) return raw.tasks;
+      if (raw && Array.isArray(raw.items)) return raw.items;
+      if (raw && Array.isArray(raw.data)) return raw.data;
+      return [];
     }
 
-    sprints.forEach(s => {
-      const row = document.createElement("div");
-      row.className = "sprint-row";
-      row.textContent = s.name;
-      // ⭐ FORCE pointer cursor on this element
-      row.style.cursor = "pointer";
-
-      row.addEventListener("click", () => selectSprint(s.id));
-      sprintList.appendChild(row);
-    });
-  }
-
-  async function selectSprint(sprintId) {
-    currentSprintId = sprintId;
-
-    // 1) Get full sprint (including issues) for list + burndown
-    const sprintRes = await fetch(`/sprints/${sprintId}`);
-
-    if (!sprintRes.ok) {
-      console.error("Failed to fetch sprint", await sprintRes.text());
-      alert("Failed to load sprint details.");
-      return;
-    }
-    const sprint = await sprintRes.json();
-
-    currentSprintData = sprint;
-    currentIssuesById = {};
-    (sprint.issues || []).forEach((issue) => {
-      currentIssuesById[issue.id] = issue;
-    });
-
-    const issueDetailBox = document.getElementById("issue-detail");
-    if (issueDetailBox) {
-      issueDetailBox.classList.add("hidden");
-    }
-
-    // 2) Get AI-style risk explanation
-    const riskRes = await fetch(`/sprints/risk/${sprintId}`);
-    const reportTitle = document.getElementById("risk-title");
-    const reportText = document.getElementById("risk-text");
-
-    if (!riskRes.ok) {
-      console.error("Failed to fetch risk", await riskRes.text());
-      reportTitle.textContent = `${sprint.name} – ${sprint.risk_level.toUpperCase()} risk`;
-      reportText.textContent = `Risk score ${sprint.risk_score.toFixed(2)}.`;
-    } else {
-      const risk = await riskRes.json();
-      reportTitle.textContent = risk.summary;
-      reportText.textContent = risk.details;
-    }
-    // 3) Render issues
-    renderIssues(sprint.issues);
-
-    // 4) Update burndown chart for this sprint
-    updateBurndownChart(sprint);
-
-    // 5) Update alerts panel
-    updateAlertsForSprint(sprintId);
-  }
-
-  function renderIssues(issues) {
-    const issuesList = document.getElementById("issues-list");
-    issuesList.innerHTML = "";
-
-    if (!issues || issues.length === 0) {
-        issuesList.innerHTML = "<p class='empty-state'>No issues yet for this sprint.</p>";
-        return;
-    }
-
-    issues.forEach((issue) => {
-        const row = document.createElement("div");
-        row.className = "issue-row";   // ✅ back to your original style
-
-        // Keep the structure simple so your existing CSS keeps working
-        row.innerHTML = `
-            <div class="issue-title">${issue.key} – ${issue.title}</div>
-            <div class="issue-meta">
-                Status: ${issue.status}
-                ${issue.assignee ? " · " + issue.assignee : ""}
-                ${issue.is_blocker ? " · BLOCKER" : ""}
-            </div>
-        `;
-
-        // Still clickable ✅
-        row.addEventListener("click", () => {
-            selectIssue(issue.id);
-        });
-
-        issuesList.appendChild(row);
-    });
-  }
-
-  function updateBurndownChart(sprint) {
-    const ctx = document.getElementById("burndown-chart").getContext("2d");
-
-    const issues = sprint.issues || [];
-    const totalIssues = issues.length;
-
-    if (!totalIssues) {
-      if (burndownChart) {
-        burndownChart.destroy();
-        burndownChart = null;
+    function formatDate(dtString) {
+      if (!dtString) return "-";
+      try {
+        const d = new Date(dtString);
+        if (isNaN(d.getTime())) return dtString;
+        return d.toLocaleString();
+      } catch {
+        return dtString;
       }
-      return;
     }
 
-    const doneStatuses = ["done", "resolved", "closed"];
+    async function loadTasks() {
+      const tbody = document.getElementById("tasksBody");
+      const errorDiv = document.getElementById("error");
+      const refreshBtn = document.getElementById("refreshBtn");
 
-    const start = new Date(sprint.start_date);
-    const end = new Date(sprint.end_date);
-    const msPerDay = 1000 * 60 * 60 * 24;
-    const totalDays = Math.max(1, Math.round((end - start) / msPerDay));
-    const labels = [];
-    const ideal = [];
-    const actual = [];
+      errorDiv.style.display = "none";
+      refreshBtn.disabled = true;
 
-    for (let i = 0; i <= totalDays; i++) {
-      const currentDate = new Date(start.getTime() + i * msPerDay);
-      labels.push(currentDate.toLocaleDateString());
-
-      const idealRemaining = totalIssues - (totalIssues * i) / totalDays;
-      ideal.push(idealRemaining);
-
-      let doneCount = 0;
-      issues.forEach((issue) => {
-        const updated = new Date(issue.updated_at);
-        const isDone = doneStatuses.includes(issue.status.toLowerCase());
-        if (isDone && updated <= currentDate) {
-          doneCount += 1;
+      try {
+        const res = await fetch(`${API_BASE}/tasks`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
         }
-      });
-      const actualRemaining = totalIssues - doneCount;
-      actual.push(actualRemaining);
-    }
+        const json = await res.json();
+        const tasks = normalizeTasks(json);
 
-    if (burndownChart) {
-      burndownChart.destroy();
-    }
+        if (!tasks.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center; padding:16px;">No tasks found.</td>
+            </tr>
+          `;
+        } else {
+          tbody.innerHTML = "";
+          for (const t of tasks) {
+            const row = document.createElement("tr");
 
-    burndownChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Ideal remaining",
-            data: ideal,
-            borderWidth: 2,
-            tension: 0.2,
-          },
-          {
-            label: "Actual remaining",
-            data: actual,
-            borderWidth: 2,
-            borderDash: [4, 4],
-            tension: 0.2,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            display: true,
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              stepSize: 1,
-            },
-          },
-        },
-      },
-    });
-  }
+            const idCell = document.createElement("td");
+            idCell.innerHTML = `<span class="mono">${t.id ?? "-"}</span>`;
+            row.appendChild(idCell);
 
-  async function updateAlertsForSprint(sprintId) {
-    const alertsList = document.getElementById("alerts-list");
-    alertsList.innerHTML = "<p class='empty-state'>Loading alerts…</p>";
+            const titleCell = document.createElement("td");
+            const squad = t.squad || (t.metadata && t.metadata.squad);
+            titleCell.innerHTML = `
+              <div>${t.title || "-"}</div>
+              ${squad ? `<div class="small">Squad: <span class="mono">${squad}</span></div>` : ""}
+            `;
+            row.appendChild(titleCell);
 
-    const res = await fetch(`/sprints/${sprintId}/alerts`);
-    if (!res.ok) {
-      console.error("Failed to fetch alerts", await res.text());
-      alertsList.innerHTML = "<p class='empty-state'>Could not load alerts.</p>";
-      return;
-    }
+            const statusCell = document.createElement("td");
+            const status = t.status || t.state;
+            statusCell.innerHTML = `
+              <span class="status-pill ${getStatusClass(status)}">
+                ${status ? String(status).toUpperCase() : "UNKNOWN"}
+              </span>
+            `;
+            row.appendChild(statusCell);
 
-    const alerts = await res.json();
+            const companyCell = document.createElement("td");
+            const company = t.company_id || t.company || (t.metadata && t.metadata.company_id);
+            companyCell.innerHTML = company
+              ? `<span class="small">ID ${company}</span>`
+              : `<span class="small">-</span>`;
+            row.appendChild(companyCell);
 
-    if (!alerts.length) {
-      alertsList.innerHTML = "<p class='empty-state'>No alerts for this sprint. All clear ✅</p>";
-      return;
-    }
+            const resultCell = document.createElement("td");
+            resultCell.className = "result-text";
+            resultCell.textContent = t.result_text || t.result || "-";
+            row.appendChild(resultCell);
 
-    alertsList.innerHTML = "";
+            const metaCell = document.createElement("td");
+            metaCell.className = "metadata mono";
+            const meta = t.metadata || t.metadata_json || {};
+            const shortMeta = {};
+            const keys = Object.keys(meta);
+            for (let i = 0; i < Math.min(keys.length, 4); i++) {
+              shortMeta[keys[i]] = meta[keys[i]];
+            }
+            metaCell.textContent = keys.length
+              ? JSON.stringify(shortMeta)
+              : "-";
+            row.appendChild(metaCell);
 
-    alerts.forEach((a) => {
-      const div = document.createElement("div");
-      div.className = `alert-item ${a.level}`;
+            const tsCell = document.createElement("td");
+            tsCell.innerHTML = `
+              <div class="small">Created: ${formatDate(t.created_at)}</div>
+              <div class="small">Updated: ${formatDate(t.updated_at || t.completed_at)}</div>
+            `;
+            row.appendChild(tsCell);
 
-      const tag = document.createElement("span");
-      tag.className = "alert-tag";
-      tag.textContent = a.type.toUpperCase();
+            tbody.appendChild(row);
+          }
+        }
 
-      const msg = document.createElement("span");
-      msg.textContent = " " + a.message;
+        document.getElementById("lastUpdated").textContent =
+          "Last updated: " + new Date().toLocaleTimeString();
 
-      div.appendChild(tag);
-      div.appendChild(msg);
-
-      alertsList.appendChild(div);
-    });
-  }
-
-  function selectIssue(issueId) {
-    const issue = currentIssuesById[issueId];
-    if (!issue) {
-      console.warn("Issue not found in current sprint", issueId);
-      return;
-    }
-
-    const box = document.getElementById("issue-detail");
-    const titleEl = document.getElementById("issue-detail-title");
-    const textEl = document.getElementById("issue-detail-text");
-
-    if (!box || !titleEl || !textEl) return;
-
-    const status = (issue.status || "").toLowerCase();
-    const isDone = ["done", "resolved", "closed"].includes(status);
-
-    const created = issue.created_at ? new Date(issue.created_at) : null;
-    const updated = issue.updated_at ? new Date(issue.updated_at) : null;
-
-    const now = new Date();
-
-    let ageDays = null;
-    if (created) {
-      ageDays = Math.round((now - created) / (1000 * 60 * 60 * 24));
-    }
-
-    let sinceUpdateDays = null;
-    if (updated) {
-      sinceUpdateDays = Math.round((now - updated) / (1000 * 60 * 60 * 24));
-    }
-
-    // Title
-    titleEl.textContent = `${issue.key} – ${issue.title}`;
-
-    // Build explanation paragraphs
-    const parts = [];
-
-    // Overall status
-    if (isDone) {
-      parts.push("This issue is marked as DONE.");
-    } else if (status === "in progress") {
-      parts.push("This issue is currently IN PROGRESS.");
-    } else if (status === "to do" || status === "todo" || status === "open") {
-      parts.push("This issue is still OPEN and has not been completed yet.");
-    } else if (status) {
-      parts.push(`This issue is currently in status “${issue.status}”.`);
-    } else {
-      parts.push("This issue does not have a clear status set.");
-    }
-
-    // Blocker hint
-    if (issue.is_blocker) {
-      parts.push(
-        "It is flagged as a BLOCKER, which means other work may be blocked until this is resolved."
-      );
-    }
-
-    // Assignee
-    if (issue.assignee) {
-      parts.push(`The current assignee is ${issue.assignee}.`);
-    } else {
-      parts.push("There is no assignee on this issue yet.");
-    }
-
-    // Timing
-    if (ageDays !== null) {
-      parts.push(`The issue was created about ${ageDays} day(s) ago.`);
-    }
-    if (sinceUpdateDays !== null) {
-      parts.push(`The latest update was about ${sinceUpdateDays} day(s) ago.`);
-    }
-
-    // Sprint context (optional)
-    if (currentSprintData) {
-      const end = new Date(currentSprintData.end_date);
-      const msPerDay = 1000 * 60 * 60 * 24;
-      const daysLeft = Math.round((end - now) / msPerDay);
-      if (daysLeft >= 0) {
-        parts.push(
-          `The sprint ends in approximately ${daysLeft} day(s); delays on this issue may affect the sprint delivery.`
-        );
-      } else {
-        parts.push(
-          "The sprint has already passed its planned end date, so any remaining work on this issue is overdue relative to the sprint."
-        );
+      } catch (err) {
+        console.error(err);
+        errorDiv.style.display = "block";
+        errorDiv.textContent = "Error loading tasks from /tasks: " + err.message;
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align:center; padding:16px;">Failed to load tasks.</td>
+          </tr>
+        `;
+      } finally {
+        refreshBtn.disabled = false;
       }
     }
 
-    textEl.textContent = parts.join(" ");
+    document.getElementById("refreshBtn").addEventListener("click", loadTasks);
 
-    // Show the box
-    box.classList.remove("hidden");
-  }
-
-  async function updateVelocityChart() {
-    const companyId = companyFilter.value;
-    const projectId = projectFilter.value;
-
-    let url = "/sprints/with_issues";
-    const params = [];
-    if (companyId) params.push(`company_id=${companyId}`);
-    if (projectId) params.push(`project_id=${projectId}`);
-    if (params.length) url += "?" + params.join("&");
-
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.error("Failed to fetch sprints for velocity chart", await res.text());
-      return;
-    }
-
-    const sprints = await res.json();
-    if (!sprints.length) {
-      if (velocityChart) {
-        velocityChart.destroy();
-        velocityChart = null;
-      }
-      return;
-    }
-
-    const labels = [];
-    const velocities = [];
-
-    sprints.forEach((s) => {
-      const issues = s.issues || [];
-      const doneStatuses = ["done", "resolved", "closed"];
-
-      const doneCount = issues.filter((i) =>
-        doneStatuses.includes(i.status.toLowerCase())
-      ).length;
-
-      const start = new Date(s.start_date);
-      const end = new Date(s.end_date);
-      const msPerDay = 1000 * 60 * 60 * 24;
-      const days = Math.max(1, Math.round((end - start) / msPerDay));
-      const velocity = doneCount / days;
-
-      labels.push(s.name);
-      velocities.push(velocity);
-    });
-
-    const ctx = document.getElementById("velocity-chart").getContext("2d");
-
-    if (velocityChart) {
-      velocityChart.destroy();
-    }
-
-    velocityChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Done issues per day",
-            data: velocities,
-            borderWidth: 1,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            display: true,
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-          },
-        },
-      },
-    });
-  }
-
-  // ====== ISSUE MODAL HANDLERS ======
-
-  addIssueBtn.addEventListener("click", () => {
-    if (!currentSprintId) {
-      alert("Please select a sprint first.");
-      return;
-    }
-    issueModal.classList.remove("hidden");
-  });
-
-  issueCancelBtn.addEventListener("click", () => {
-    issueModal.classList.add("hidden");
-  });
-
-  issueCreateBtn.addEventListener("click", async () => {
-    if (!currentSprintId) {
-      alert("No sprint selected.");
-      return;
-    }
-
-    const title = issueTitleInput.value.trim();
-    const status = issueStatusSelect.value;
-    const assignee = issueAssigneeInput.value.trim();
-    const is_blocker = issueBlockerCheckbox.checked;
-
-    if (!title) {
-      alert("Please enter a title.");
-      return;
-    }
-
-    const payload = {
-      title,
-      status,
-      assignee: assignee || null,
-      is_blocker
-    };
-
-    const res = await fetch(`/sprints/${currentSprintId}/issues`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      console.error("Failed to create issue:", err);
-      alert("Failed to create issue.");
-      return;
-    }
-
-    issueModal.classList.add("hidden");
-    issueTitleInput.value = "";
-    issueAssigneeInput.value = "";
-    issueBlockerCheckbox.checked = false;
-
-    await selectSprint(currentSprintId);
-  });
-
-  // ====== CREATE SPRINT MODAL ======
-
-  createSprintBtn.addEventListener("click", () => {
-    const companyId = companyFilter.value;
-    if (!companyId) {
-      alert("Please select a company first.");
-      return;
-    }
-
-    loadProjectsForCompany(companyId);
-    modal.classList.remove("hidden");
-  });
-
-  modalCancelBtn.addEventListener("click", () => {
-    modal.classList.add("hidden");
-  });
-
-  modalCreateBtn.addEventListener("click", async () => {
-    const projectId = parseInt(modalProjectSelect.value, 10);
-    const name = modalSprintName.value.trim();
-    const startDate = modalStartDate.value;
-    const endDate = modalEndDate.value;
-
-    if (!projectId) {
-      alert("Please select a project.");
-      return;
-    }
-
-    if (!name) {
-      alert("Please enter a sprint name.");
-      return;
-    }
-
-    const payload = {
-      name: name,
-      project_id: projectId,
-      start_date: startDate ? new Date(startDate).toISOString() : undefined,
-      end_date: endDate ? new Date(endDate).toISOString() : undefined
-    };
-      
-    const res = await fetch("/sprints/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      console.error("Error creating sprint:", err);
-      alert("Failed to create sprint. Check console for details.");
-      return;
-    }
-
-    modal.classList.add("hidden");
-    modalSprintName.value = "";
-    modalStartDate.value = "";
-    modalEndDate.value = "";
-
-    await loadSprints();
-    await updateVelocityChart();
-  });
-
-  // ====== FILTER CHANGE HANDLERS ======
-
-  companyFilter.addEventListener("change", async (e) => {
-    const companyId = e.target.value;
-    await loadProjectsForCompany(companyId);
-    await loadSprints();
-    await updateVelocityChart();
-  });
-
-  projectFilter.addEventListener("change", async () => {
-    await loadSprints();
-    await updateVelocityChart();
-  });
-
-  // ====== INITIALISE DASHBOARD ======
-  (async function init() {
-    await loadCompanies();
-    await loadSprints();
-    await updateVelocityChart();
-  })();
-</script>
+    loadTasks();
+    setInterval(loadTasks, 5000);
+  </script>
 </body>
 </html>
