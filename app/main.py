@@ -34,17 +34,27 @@ def log_task_event(
         result_text=task.result_text,
     )
     db.add(log)
-
+    db.commit()
 
 def process_task_in_background(task_id: int):
 
+
+    """
+    Background worker:
+    - Loads the task
+    - Marks it in_progress
+    - Runs AI logic
+    - Marks it completed or failed
+    """
     db = SessionLocal()
     try:
+        print(f"[BG] Starting background processing for task_id={task_id}")
         task = db.get(Task, task_id)
         if not task:
+            print(f"[BG] Task {task_id} not found, aborting")
             return
 
-        # -> in_progress
+        # 1) -> in_progress
         old_status = task.status
         task.status = "in_progress"
         db.commit()
@@ -56,33 +66,17 @@ def process_task_in_background(task_id: int):
             old_status=old_status,
             new_status=task.status,
         )
-        db.commit()
+        # log_task_event now commits internally
 
-        # Run AI logic
-        result_text = run_ai_coo_logic(task)
+        try:
+            # 2) Run AI logic
+            print(f"[BG] Running AI COO logic for task_id={task_id}")
+            result_text = run_ai_coo_logic(task)
 
-        # -> completed
-        old_status = task.status
-        task.status = "completed"
-        task.result_text = result_text
-        db.commit()
-        db.refresh(task)
-
-        log_task_event(
-            db=db,
-            task=task,
-            event="status_change",
-            old_status=old_status,
-            new_status=task.status,
-        )
-        db.commit()
-
-    except Exception as e:
-        task = db.get(Task, task_id)
-        if task:
+            # 3) -> completed
             old_status = task.status
-            task.status = "failed"
-            task.result_text = f"Error while processing task in background: {e!r}"
+            task.status = "completed"
+            task.result_text = result_text
             db.commit()
             db.refresh(task)
 
@@ -93,10 +87,29 @@ def process_task_in_background(task_id: int):
                 old_status=old_status,
                 new_status=task.status,
             )
+            print(f"[BG] Task {task_id} completed successfully")
+
+        except Exception as e:
+            # If AI logic crashes, mark task as failed so you see it
+            print(f"[BG] Error while processing task {task_id}: {e!r}")
+
+            old_status = task.status
+            task.status = "failed"
+            # keep message short; you can expand later
+            task.result_text = f"Background error: {e}"
             db.commit()
+            db.refresh(task)
+
+            log_task_event(
+                db=db,
+                task=task,
+                event="error",
+                old_status=old_status,
+                new_status=task.status,
+            )
     finally:
         db.close()
-
+        print(f"[BG] Closed DB session for task_id={task_id}")
 
 def serialize_task(task: Task) -> dict:
     """Return a JSON-safe dictionary for a Task ORM object."""
@@ -287,8 +300,7 @@ def run_task_async(
     # TEMPORARILY disable event logging
     # log_task_event(...)
 
-    # TEMPORARILY disable background worker
-    # background_tasks.add_task(process_task_in_background, task.id)
+    background_tasks.add_task(process_task_in_background, task.id)
 
     # Return immediately
     return {
