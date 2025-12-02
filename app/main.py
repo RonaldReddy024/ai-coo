@@ -137,6 +137,9 @@ app.include_router(auth.router, tags=["auth"])
 @app.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard():
     html_path = Path(__file__).parent / "dashboard.html"
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
