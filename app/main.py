@@ -203,19 +203,20 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/tasks")
-async def list_tasks(limit: int = 20, db: Session = Depends(get_db)):
-    """
-    List tasks from the local database.
-    """
-    try:
-        tasks = db.query(Task).order_by(Task.created_at.desc()).limit(limit).all()
-        return {
-            "ok": True,
-            "count": len(tasks),
-            "data": [serialize_task(t) for t in tasks],
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def list_tasks(
+    db: Session = Depends(get_db),
+    company_id: int | None = None,
+    squad: str | None = None,
+    limit: int = 50,
+):
+    query = db.query(Task).order_by(Task.created_at.desc())
+    if company_id is not None:
+        query = query.filter(Task.company_id == company_id)
+    if squad is not None:
+        query = query.filter(Task.squad == squad)
+
+    tasks = query.limit(limit).all()
+    return {"ok": True, "tasks": [serialize_task(t) for t in tasks]}
 
 
 @app.get("/companies/{company_id}/tasks")
