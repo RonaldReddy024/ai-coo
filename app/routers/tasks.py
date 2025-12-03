@@ -117,8 +117,25 @@ def serialize_task(task: Task) -> dict:
 
 
 @router.get("/", name="list_tasks")
-def list_tasks(limit: int = 50, db: Session = Depends(get_db)):
-    tasks = db.query(Task).order_by(Task.created_at.desc()).limit(limit).all()
+def list_tasks(
+    limit: int = 50,
+    status: str | None = None,
+    squad: str | None = None,
+    company_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(Task).order_by(Task.created_at.desc())
+
+    if status:
+        query = query.filter(Task.status == status)
+
+    if squad:
+        query = query.filter(Task.squad == squad)
+
+    if company_id is not None:
+        query = query.filter(Task.company_id == company_id)
+
+    tasks = query.limit(limit).all()
     return {"ok": True, "tasks": tasks}
 
 
