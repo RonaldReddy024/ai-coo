@@ -4,71 +4,319 @@
   <meta charset="UTF-8" />
   <title>WorkYodha AI COO – Sprint Risks</title>
   <style>
-    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 20px; background: #0f172a; color: #e5e7eb; }
-    h1 { margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid #1f2937; text-align: left; }
-    th { background: #111827; position: sticky; top: 0; }
-    .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    h1 { margin: 0 0 4px 0; }
+    p.sub { margin: 0 0 16px 0; color: #9ca3af; font-size: 14px; }
+
+    .layout-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #111827;
+      color: #9ca3af;
+    }
+
+    .filters {
+      margin-top: 16px;
+      margin-bottom: 8px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 13px;
+    }
+    .filters label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+    .filters select,
+    .filters input {
+      background: #020617;
+      border: 1px solid #1f2937;
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #e5e7eb;
+      font-size: 13px;
+      outline: none;
+    }
+    .filters button {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #e5e7eb;
+    }
+    .filters button:hover {
+      background: #1d4ed8;
+    }
+
+    .refresh-indicator {
+      font-size: 12px;
+      color: #6b7280;
+      margin-left: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #111827;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #020617;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
     .status-completed { background: #16a34a22; color: #4ade80; }
-    .status-pending { background: #fbbf2422; color: #facc15; }
-    .status-running { background: #38bdf822; color: #7dd3fc; }
-    .pill { font-size: 11px; padding: 2px 6px; border-radius: 999px; background: #111827; color: #9ca3af; }
-    .layout-top { display: flex; justify-content: space-between; align-items: baseline; }
-    a { color: #60a5fa; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    .status-pending   { background: #fbbf2422; color: #facc15; }
+    .status-running   { background: #38bdf822; color: #7dd3fc; }
+
+    .meta {
+      color: #9ca3af;
+      font-size: 12px;
+      margin-top: 2px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 4px;
+      background: #4ade80;
+    }
   </style>
 </head>
 <body>
   <div class="layout-top">
     <div>
       <h1>WorkYodha AI COO – Sprint Risks</h1>
-      <p style="color:#9ca3af; margin-top:4px;">
-        Live view of tasks your AI COO has processed.
+      <p class="sub">
+        Live view of tasks your AI COO is processing in rupees (₹).
       </p>
     </div>
     <div>
-      <span class="pill">Backend: healthy</span>
+      <span class="pill">
+        <span class="status-dot"></span>
+        Backend: healthy
+      </span>
     </div>
+  </div>
 
+    <div class="filters">
+    <label>
+      Status
+      <select id="statusFilter">
+        <option value="">All</option>
+        <option value="pending">Pending</option>
+        <option value="running">Running</option>
+        <option value="completed">Completed</option>
+      </select>
+    </label>
+
+    <label>
+      Squad
+      <input id="squadFilter" type="text" placeholder="e.g. finance" />
+    </label>
+
+    <label>
+      Company ID
+      <input id="companyFilter" type="number" min="1" placeholder="e.g. 1" />
+    </label>
+
+    <button id="applyFiltersBtn">Apply filters</button>
+
+    <span class="refresh-indicator" id="refreshIndicator">
+      Auto-refresh: every 5s
+    </span>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th>ID</th>
-        <th>Title</th>
-        <th>Company / Squad</th>
-        <th>Status</th>
-        <th>Created</th>
+        <th style="width: 60px;">ID</th>
+        <th>Title / Metadata</th>
+        <th style="width: 180px;">Company / Squad</th>
+        <th style="width: 120px;">Status</th>
+        <th style="width: 190px;">Created</th>
       </tr>
     </thead>
     <tbody>
-      {% for task in tasks %}
-      <tr>
-        <td>#{{ task.id }}</td>
-        <td>
-          <strong>{{ task.title }}</strong><br />
-          <span style="color:#9ca3af; font-size:12px;">
-            {{ task.metadata_json }}
-          </span>
-        </td>
-        <td>
-          {% if task.company_id %}Company {{ task.company_id }}{% else %}–{% endif %}
-          {% if task.squad %} · Squad: {{ task.squad }}{% endif %}
-        </td>
-        <td>
-          {% set status = task.status or "pending" %}
-          <span class="badge status-{{ status }}">
-            {{ status.upper() }}
-          </span>
-        </td>
-        <td>
-          {{ task.created_at }}
-        </td>
-      </tr>
-      {% endfor %}
+    <tbody id="tasksBody">
+      <!-- Filled by JS -->
     </tbody>
   </table>
+
+  <script>
+    const tasksBody = document.getElementById('tasksBody');
+    const statusFilter = document.getElementById('statusFilter');
+    const squadFilter = document.getElementById('squadFilter');
+    const companyFilter = document.getElementById('companyFilter');
+    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    const refreshIndicator = document.getElementById('refreshIndicator');
+
+    let lastRefresh = null;
+
+    function escapeHtml(str) {
+      if (!str && str !== 0) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function buildQuery() {
+      const params = new URLSearchParams();
+      params.set('limit', '100');
+
+      const status = statusFilter.value.trim();
+      const squad = squadFilter.value.trim();
+      const company = companyFilter.value.trim();
+
+      if (status) params.set('status', status);
+      if (squad) params.set('squad', squad);
+      if (company) params.set('company_id', company);
+
+      return params.toString();
+    }
+
+    async function fetchTasks() {
+      try {
+        const qs = buildQuery();
+        const res = await fetch('/tasks?' + qs);
+        if (!res.ok) {
+          console.error('Failed to fetch tasks', res.status);
+          return;
+        }
+        const data = await res.json();
+        if (!data.ok) {
+          console.error('API returned error', data);
+          return;
+        }
+        renderTasks(data.tasks || []);
+        lastRefresh = new Date();
+        refreshIndicator.textContent = 'Auto-refresh: just now';
+      } catch (err) {
+        console.error('Error fetching tasks', err);
+        refreshIndicator.textContent = 'Auto-refresh: error (see console)';
+      }
+    }
+
+    function renderTasks(tasks) {
+      if (!Array.isArray(tasks)) tasks = [];
+      tasksBody.innerHTML = '';
+
+      if (tasks.length === 0) {
+        tasksBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align:center; color:#6b7280; padding: 24px 0;">
+              No tasks found for current filters.
+            </td>
+          </tr>`;
+        return;
+      }
+
+      for (const task of tasks) {
+        const status = (task.status || 'pending').toLowerCase();
+        const badgeClass = 'status-' + status;
+
+        let metaText = '';
+        if (task.metadata_json) {
+          try {
+            // metadata_json may already be an object
+            const meta = typeof task.metadata_json === 'string'
+              ? JSON.parse(task.metadata_json)
+              : task.metadata_json;
+
+            const entries = Object.entries(meta).map(
+              ([k, v]) => `${k}: ${v}`
+            );
+            metaText = entries.join('\n');
+          } catch (e) {
+            metaText = typeof task.metadata_json === 'string'
+              ? task.metadata_json
+              : JSON.stringify(task.metadata_json);
+          }
+        }
+
+        const created = task.created_at || '';
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>#${escapeHtml(task.id)}</td>
+          <td>
+            <strong>${escapeHtml(task.title)}</strong>
+            <div class="meta">${escapeHtml(metaText)}</div>
+          </td>
+          <td>
+            ${task.company_id ? 'Company ' + escapeHtml(task.company_id) : '–'}
+            ${task.squad ? ' · Squad: ' + escapeHtml(task.squad) : ''}
+          </td>
+          <td>
+            <span class="badge ${badgeClass}">
+              ${escapeHtml(status.toUpperCase())}
+            </span>
+          </td>
+          <td>${escapeHtml(created)}</td>
+        `;
+        tasksBody.appendChild(row);
+      }
+    }
+
+    applyFiltersBtn.addEventListener('click', () => {
+      fetchTasks();
+    });
+
+    // Auto-refresh every 5 seconds
+    setInterval(() => {
+      fetchTasks();
+      if (lastRefresh) {
+        const diff = Math.round((Date.now() - lastRefresh.getTime()) / 1000);
+        if (diff > 5) {
+          refreshIndicator.textContent = `Auto-refresh: ${diff}s ago`;
+        }
+      }
+    }, 5000);
+
+    // Initial load
+    fetchTasks();
+  </script>
 </body>
 </html>
