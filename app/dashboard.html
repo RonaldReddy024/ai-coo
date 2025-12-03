@@ -5,6 +5,12 @@
   <title>AI COO – Task Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    .task-row-clickable {
+      cursor: pointer;
+    }
+    .task-row-clickable:hover {
+      background-color: #f9fafb;
+    }
     .task-link {
       color: inherit;
       text-decoration: none;
@@ -257,7 +263,10 @@
           tbody.innerHTML = "";
           for (const t of tasks) {
             const row = document.createElement("tr");
-
+            // Make the whole row clickable
+            row.classList.add("task-row-clickable");
+            row.dataset.taskId = t.id;
+            
             const idCell = document.createElement("td");
             idCell.innerHTML = `<span class="mono">${t.id ?? "-"}</span>`;
             row.appendChild(idCell);
@@ -333,11 +342,20 @@
         refreshBtn.disabled = false;
       }
     }
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("refreshBtn").addEventListener("click", loadTasks);
 
-    document.getElementById("refreshBtn").addEventListener("click", loadTasks);
+      document.addEventListener("click", (event) => {
+        const tr = event.target.closest("tr.task-row-clickable");
+        if (!tr) return;
+        const id = tr.dataset.taskId;
+        if (!id) return;
+        window.location.href = `/tasks/${encodeURIComponent(id)}/view`;
+      });
 
-    loadTasks();
-    setInterval(loadTasks, 5000);
+      loadTasks();
+      setInterval(loadTasks, 5000);
+    });
   </script>
 </body>
 </html>
