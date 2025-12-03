@@ -2,319 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>WorkYodha AI COO – Task Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkYodha AI COO – Sprint Risks</title>
   <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      padding: 16px 24px;
-      border-bottom: 1px solid #1f2937;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 20px;
-    }
-    header span {
-      font-size: 12px;
-      color: #9ca3af;
-    }
-    main {
-      padding: 16px 24px 32px;
-    }
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    button {
-      cursor: pointer;
-      border-radius: 999px;
-      border: none;
-      padding: 8px 14px;
-      font-size: 13px;
-      background: #ec4899;
-      color: white;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
-    .status-pill {
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      display: inline-block;
-    }
-    .status-pending { background: #1f2937; color: #fbbf24; }
-    .status-running { background: #1d4ed8; color: #e5e7eb; }
-    .status-completed { background: #065f46; color: #bbf7d0; }
-    .status-failed { background: #7f1d1d; color: #fecaca; }
-    .status-other { background: #374151; color: #e5e7eb; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      background: #020617;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid #1f2937;
-    }
-    thead {
-      background: #020617;
-    }
-    th, td {
-      padding: 8px 10px;
-      text-align: left;
-      border-bottom: 1px solid #111827;
-      vertical-align: top;
-    }
-    th {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #9ca3af;
-      background: #020617;
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-    tr:hover td {
-      background: #020617;
-    }
-    .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 12px;
-      color: #9ca3af;
-    }
-    .result-text {
-      max-width: 420px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .metadata {
-      max-width: 220px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .small {
-      font-size: 11px;
-      color: #9ca3af;
-    }
-    .error {
-      margin-top: 8px;
-      font-size: 12px;
-      color: #fecaca;
-    }
-    .badge {
-      font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      background: #111827;
-      color: #9ca3af;
-      border: 1px solid #1f2937;
-    }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 20px; background: #0f172a; color: #e5e7eb; }
+    h1 { margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #1f2937; text-align: left; }
+    th { background: #111827; position: sticky; top: 0; }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .status-completed { background: #16a34a22; color: #4ade80; }
+    .status-pending { background: #fbbf2422; color: #facc15; }
+    .status-running { background: #38bdf822; color: #7dd3fc; }
+    .pill { font-size: 11px; padding: 2px 6px; border-radius: 999px; background: #111827; color: #9ca3af; }
+    .layout-top { display: flex; justify-content: space-between; align-items: baseline; }
+    a { color: #60a5fa; text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <header>
+  <div class="layout-top">
     <div>
-      <h1>WorkYodha AI COO – Task Dashboard</h1>
-      <span>Live view of tasks from <code class="mono">/tasks</code></span>
+      <h1>WorkYodha AI COO – Sprint Risks</h1>
+      <p style="color:#9ca3af; margin-top:4px;">
+        Live view of tasks your AI COO has processed.
+      </p>
     </div>
     <div>
-      <span class="badge">v0.1 – local only</span>
-    </div>
-  </header>
-
-  <main>
-    <div class="toolbar">
-      <button id="refreshBtn">
-        🔄 Refresh now
-      </button>
-      <span class="small" id="lastUpdated">Last updated: never</span>
-      <span class="small">• Auto-refresh every 5s</span>
+      <span class="pill">Backend: healthy</span>
     </div>
 
-    <div id="error" class="error" style="display:none;"></div>
+  </div>
 
-    <div style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Title / Squad</th>
-            <th>Status</th>
-            <th>Company</th>
-            <th>Result</th>
-            <th>Metadata</th>
-            <th>Timestamps</th>
-          </tr>
-        </thead>
-        <tbody id="tasksBody">
-          <tr>
-            <td colspan="7" style="text-align:center; padding:16px;">Loading tasks…</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </main>
-
-  <script>
-    const API_BASE = ""; // same origin
-
-    function getStatusClass(status) {
-      if (!status) return "status-other";
-      const s = String(status).toLowerCase();
-      if (s === "pending") return "status-pending";
-      if (s === "running" || s === "in_progress") return "status-running";
-      if (s === "completed" || s === "done") return "status-completed";
-      if (s === "failed" || s === "error") return "status-failed";
-      return "status-other";
-    }
-
-    function normalizeTasks(raw) {
-      if (Array.isArray(raw)) return raw;
-      if (raw && Array.isArray(raw.tasks)) return raw.tasks;
-      if (raw && Array.isArray(raw.items)) return raw.items;
-      if (raw && Array.isArray(raw.data)) return raw.data;
-      return [];
-    }
-
-    function formatDate(dtString) {
-      if (!dtString) return "-";
-      try {
-        const d = new Date(dtString);
-        if (isNaN(d.getTime())) return dtString;
-        return d.toLocaleString();
-      } catch {
-        return dtString;
-      }
-    }
-
-    async function loadTasks() {
-      const tbody = document.getElementById("tasksBody");
-      const errorDiv = document.getElementById("error");
-      const refreshBtn = document.getElementById("refreshBtn");
-
-      errorDiv.style.display = "none";
-      refreshBtn.disabled = true;
-
-      try {
-        const res = await fetch(`${API_BASE}/tasks`);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const json = await res.json();
-        const tasks = normalizeTasks(json);
-
-        if (!tasks.length) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align:center; padding:16px;">No tasks found.</td>
-            </tr>
-          `;
-        } else {
-          tbody.innerHTML = "";
-          for (const t of tasks) {
-            const row = document.createElement("tr");
-
-            const idCell = document.createElement("td");
-            idCell.innerHTML = `<span class="mono">${t.id ?? "-"}</span>`;
-            row.appendChild(idCell);
-
-            const titleCell = document.createElement("td");
-            const squad = t.squad || (t.metadata && t.metadata.squad);
-            titleCell.innerHTML = `
-              <div>${t.title || "-"}</div>
-              ${squad ? `<div class="small">Squad: <span class="mono">${squad}</span></div>` : ""}
-            `;
-            row.appendChild(titleCell);
-
-            const statusCell = document.createElement("td");
-            const status = t.status || t.state;
-            statusCell.innerHTML = `
-              <span class="status-pill ${getStatusClass(status)}">
-                ${status ? String(status).toUpperCase() : "UNKNOWN"}
-              </span>
-            `;
-            row.appendChild(statusCell);
-
-            const companyCell = document.createElement("td");
-            const company = t.company_id || t.company || (t.metadata && t.metadata.company_id);
-            companyCell.innerHTML = company
-              ? `<span class="small">ID ${company}</span>`
-              : `<span class="small">-</span>`;
-            row.appendChild(companyCell);
-
-            const resultCell = document.createElement("td");
-            resultCell.className = "result-text";
-            resultCell.textContent = t.result_text || t.result || "-";
-            row.appendChild(resultCell);
-
-            const metaCell = document.createElement("td");
-            metaCell.className = "metadata mono";
-            const meta = t.metadata || t.metadata_json || {};
-            const shortMeta = {};
-            const keys = Object.keys(meta);
-            for (let i = 0; i < Math.min(keys.length, 4); i++) {
-              shortMeta[keys[i]] = meta[keys[i]];
-            }
-            metaCell.textContent = keys.length
-              ? JSON.stringify(shortMeta)
-              : "-";
-            row.appendChild(metaCell);
-
-            const tsCell = document.createElement("td");
-            tsCell.innerHTML = `
-              <div class="small">Created: ${formatDate(t.created_at)}</div>
-              <div class="small">Updated: ${formatDate(t.updated_at || t.completed_at)}</div>
-            `;
-            row.appendChild(tsCell);
-
-            tbody.appendChild(row);
-          }
-        }
-
-        document.getElementById("lastUpdated").textContent =
-          "Last updated: " + new Date().toLocaleTimeString();
-
-      } catch (err) {
-        console.error(err);
-        errorDiv.style.display = "block";
-        errorDiv.textContent = "Error loading tasks from /tasks: " + err.message;
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" style="text-align:center; padding:16px;">Failed to load tasks.</td>
-          </tr>
-        `;
-      } finally {
-        refreshBtn.disabled = false;
-      }
-    }
-
-    document.getElementById("refreshBtn").addEventListener("click", loadTasks);
-
-    loadTasks();
-    setInterval(loadTasks, 5000);
-  </script>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Company / Squad</th>
+        <th>Status</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td>#{{ task.id }}</td>
+        <td>
+          <strong>{{ task.title }}</strong><br />
+          <span style="color:#9ca3af; font-size:12px;">
+            {{ task.metadata_json }}
+          </span>
+        </td>
+        <td>
+          {% if task.company_id %}Company {{ task.company_id }}{% else %}–{% endif %}
+          {% if task.squad %} · Squad: {{ task.squad }}{% endif %}
+        </td>
+        <td>
+          {% set status = task.status or "pending" %}
+          <span class="badge status-{{ status }}">
+            {{ status.upper() }}
+          </span>
+        </td>
+        <td>
+          {{ task.created_at }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </body>
 </html>
