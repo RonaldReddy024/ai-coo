@@ -34,18 +34,32 @@ Note:
 - Used the built-in local playbook instead."""
 
 
-def run_ai_coo_logic(task) -> str:
+def _extract_title_and_metadata(task_or_title, metadata):
+    """Support both Task objects and explicit title/metadata arguments."""
+
+    if isinstance(task_or_title, str):
+        return task_or_title, metadata or {}
+
+    # Fallback for callers passing a Task-like object
+    return getattr(task_or_title, "title", ""), getattr(task_or_title, "metadata_json", {}) or {}
+
+
+def run_ai_coo_logic(task_or_title, metadata=None, currency: str = "INR") -> str:
+    """Generate an execution plan, enforcing an INR-first theme.
+
+    Accepts either a Task ORM object or a raw title/metadata pair so the
+    background worker can call it without loading extra relationships.
     """
-    Try OpenAI; if that fails (e.g. insufficient_quota), fall back to a local plan.
-    """
-    title = getattr(task, "title", "")
-    metadata = getattr(task, "metadata_json", {}) or {}
+
+    title, metadata_dict = _extract_title_and_metadata(task_or_title, metadata)
 
     prompt = f"""
 You are an AI COO. Create a structured execution plan.
 
 Task title: {title}
-Metadata: {metadata}
+Metadata: {metadata_dict}
+
+Use {currency} for all currency references.
     """.strip()
 
     try:
@@ -67,9 +81,9 @@ Metadata: {metadata}
     except Exception as e:
         print("[AI-COO] External provider error:", e)
 
-        return f"""Summary: Execution plan for '{task.title}' (local fallback, external AI unavailable).
+        return f"""Summary: Execution plan for '{title}' (local fallback, external AI unavailable).
 
-Currency: INR (₹)
+Currency: {currency} (₹)
 
 Steps:
 - Confirm scope and success criteria with stakeholders in the relevant team.
