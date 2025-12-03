@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..ai_logic import run_ai_coo_logic
+from ..ai_logic import build_local_fallback_plan, run_ai_coo_logic
 from ..database import SessionLocal, get_db
 from ..models import AiTaskLog, Task
 from ..schemas import TaskCreate, TaskUpdate
@@ -62,41 +62,36 @@ def process_task_in_background(task_id: int):
             print(f"[BG] Running AI COO logic for task_id={task_id}")
             result_text, provider_status = run_ai_coo_logic(task)
 
-            # 3) -> completed
-            old_status = task.status
-            task.status = "completed"
-            task.result_text = result_text
-            task.external_provider_status = provider_status
-            db.commit()
-            db.refresh(task)
-
-            log_task_event(
-                db=db,
-                task=task,
-                event="status_change",
-                old_status=old_status,
-                new_status=task.status,
-            )
-            print(f"[BG] Task {task_id} completed successfully")
-
         except Exception as e:
-            # If AI logic crashes, mark task as failed so you see it
-            print(f"[BG] Error while processing task {task_id}: {e!r}")
+            # External provider failed before we could return a provider_status
+            message = str(e)
+            print(f"[BG] Error while processing task {task_id}: {message!r}")
 
-            old_status = task.status
-            task.status = "failed"
-            # keep message short; you can expand later
-            task.result_text = f"Background error: {e}"
-            db.commit()
-            db.refresh(task)
+            if "insufficient_quota" in message or "429" in message:
+                provider_status = "fallback_insufficient_quota"
+            else:
+                provider_status = "fallback_error"
 
-            log_task_event(
-                db=db,
-                task=task,
-                event="error",
-                old_status=old_status,
-                new_status=task.status,
+            result_text = build_local_fallback_plan(
+                task.title, getattr(task, "metadata_json", {}) or {}
             )
+
+        # 3) -> completed (even if we fell back locally)
+        old_status = task.status
+        task.status = "completed"
+        task.result_text = result_text
+        task.external_provider_status = provider_status
+        db.commit()
+        db.refresh(task)
+
+        log_task_event(
+            db=db,
+            task=task,
+            event="status_change",
+            old_status=old_status,
+            new_status=task.status,
+        )
+        print(f"[BG] Task {task_id} completed successfully")
     finally:
         db.close()
         print(f"[BG] Closed DB session for task_id={task_id}")
