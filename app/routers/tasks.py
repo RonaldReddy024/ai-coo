@@ -118,12 +118,16 @@ def serialize_task(task: Task) -> dict:
 
 @router.get("/", name="list_tasks")
 def list_tasks(
-    limit: int = 50,
+    limit: int = 100,
     status: str | None = None,
     squad: str | None = None,
     company_id: int | None = None,
     db: Session = Depends(get_db),
 ):
+    """
+    List recent tasks for the dashboard.
+    Supports optional filters: status, squad, company_id.
+    """
     query = db.query(Task).order_by(Task.created_at.desc())
 
     if status:
