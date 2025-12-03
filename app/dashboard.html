@@ -5,6 +5,13 @@
   <title>AI COO – Task Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    .task-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .task-link:hover {
+      text-decoration: underline;
+    }
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #0f172a;
@@ -203,6 +210,16 @@
       return [];
     }
 
+    function escapeHtml(value) {
+      if (value === undefined || value === null) return "";
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
     function formatDate(dtString) {
       if (!dtString) return "-";
       try {
@@ -248,8 +265,10 @@
             const titleCell = document.createElement("td");
             const squad = t.squad || (t.metadata && t.metadata.squad);
             titleCell.innerHTML = `
-              <div>${t.title || "-"}</div>
-              ${squad ? `<div class="small">Squad: <span class="mono">${squad}</span></div>` : ""}
+              <a href="/tasks/${encodeURIComponent(t.id)}/view" class="task-link">
+                <strong>${escapeHtml(t.title || "-")}</strong>
+              </a>
+              ${squad ? `<div class="small">Squad: <span class="mono">${escapeHtml(squad)}</span></div>` : ""}
             `;
             row.appendChild(titleCell);
 
