@@ -127,7 +127,7 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None
     result_text: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
-
+    external_provider_status: Optional[str] = None
 
 class Task(TaskBase):
     id: int
@@ -136,5 +136,6 @@ class Task(TaskBase):
     created_at: datetime
     company_id: Optional[int] = None
     squad: Optional[str] = None
-    
+    external_provider_status: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
