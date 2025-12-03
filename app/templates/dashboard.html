@@ -74,6 +74,32 @@
       margin-left: auto;
     }
 
+    .summary-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+    }
+
+    .summary-strip span {
+      white-space: nowrap;
+    }
+
+    .toggle-fallback-btn {
+      margin-left: auto;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      background: #f8f8f8;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .toggle-fallback-btn:hover {
+      background: #eee;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -138,7 +164,7 @@
     </div>
   </div>
 
-    <div class="filters">
+  <div class="filters">
     <label>
       Status
       <select id="statusFilter">
@@ -166,6 +192,16 @@
     </span>
   </div>
 
+  <div id="summary-strip" class="summary-strip">
+    <span id="summary-total">0 tasks</span> ·
+    <span id="summary-external">0 ✅ External</span> ·
+    <span id="summary-fallback">0 ⚠️ Fallback</span>
+
+    <button id="toggle-fallback" class="toggle-fallback-btn">
+      Show only ⚠️ Fallback
+    </button>
+  </div>
+
   <table>
     <thead>
       <tr>
@@ -177,7 +213,6 @@
         <th style="width: 190px;">Created</th>
       </tr>
     </thead>
-    <tbody>
     <tbody id="tasksBody">
       <!-- Filled by JS -->
     </tbody>
@@ -191,6 +226,8 @@
     const applyFiltersBtn = document.getElementById('applyFiltersBtn');
     const refreshIndicator = document.getElementById('refreshIndicator');
 
+    let allTasks = [];
+    let showFallbackOnly = false;
     let lastRefresh = null;
 
     function escapeHtml(str) {
@@ -203,40 +240,76 @@
         .replace(/'/g, '&#039;');
     }
 
-    function buildQuery() {
-      const params = new URLSearchParams();
-      params.set('limit', '100');
-
-      const status = statusFilter.value.trim();
-      const squad = squadFilter.value.trim();
-      const company = companyFilter.value.trim();
-
-      if (status) params.set('status', status);
-      if (squad) params.set('squad', squad);
-      if (company) params.set('company_id', company);
-
-      return params.toString();
-    }
-
     async function fetchTasks() {
       try {
-        const qs = buildQuery();
-        const res = await fetch('/tasks?' + qs);
+        const params = new URLSearchParams();
+
+        const status = statusFilter?.value.trim() || '';
+        const squad = squadFilter?.value.trim() || '';
+        const company = companyFilter?.value.trim() || '';
+
+
+        if (status) params.append('status', status);
+        if (squad) params.append('squad', squad);
+        if (company) params.append('company_id', company);
+
+        params.append('limit', '100');
+    }
+
+        const res = await fetch(`/tasks?${params.toString()}`);
         if (!res.ok) {
           console.error('Failed to fetch tasks', res.status);
           return;
         }
         const data = await res.json();
-        if (!data.ok) {
-          console.error('API returned error', data);
-          return;
-        }
-        renderTasks(data.tasks || []);
+
+        allTasks = data.tasks || [];
+
+        updateSummary(allTasks);
+        renderTasks(getVisibleTasks());
         lastRefresh = new Date();
         refreshIndicator.textContent = 'Auto-refresh: just now';
       } catch (err) {
         console.error('Error fetching tasks', err);
         refreshIndicator.textContent = 'Auto-refresh: error (see console)';
+      }
+    }
+    function getVisibleTasks() {
+      if (!showFallbackOnly) return allTasks;
+
+      return allTasks.filter((task) => {
+        const status = (task.external_provider_status || '').toLowerCase();
+        return status.startsWith('fallback');
+      });
+    }
+
+    function updateSummary(tasks) {
+      const total = tasks.length;
+
+      let externalCount = 0;
+      let fallbackCount = 0;
+
+      for (const t of tasks) {
+        const status = (t.external_provider_status || 'ok').toLowerCase();
+        if (status === 'ok' || status === '') {
+          externalCount++;
+        } else if (status.startsWith('fallback')) {
+          fallbackCount++;
+        }
+      }
+
+      const totalEl = document.getElementById('summary-total');
+      const externalEl = document.getElementById('summary-external');
+      const fallbackEl = document.getElementById('summary-fallback');
+
+      if (totalEl) {
+        totalEl.textContent = `${total} task${total === 1 ? '' : 's'}`;
+      }
+      if (externalEl) {
+        externalEl.textContent = `${externalCount} ✅ External`;
+      }
+      if (fallbackEl) {
+        fallbackEl.textContent = `${fallbackCount} ⚠️ Fallback`;
       }
     }
 
@@ -322,24 +395,36 @@
         tasksBody.appendChild(row);
       }
     }
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggleBtn = document.getElementById('toggle-fallback');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          showFallbackOnly = !showFallbackOnly;
 
-    applyFiltersBtn.addEventListener('click', () => {
-      fetchTasks();
-    });
+          toggleBtn.textContent = showFallbackOnly
+            ? 'Show all tasks'
+            : 'Show only ⚠️ Fallback';
 
-    // Auto-refresh every 5 seconds
-    setInterval(() => {
-      fetchTasks();
-      if (lastRefresh) {
-        const diff = Math.round((Date.now() - lastRefresh.getTime()) / 1000);
-        if (diff > 5) {
-          refreshIndicator.textContent = `Auto-refresh: ${diff}s ago`;
-        }
+          renderTasks(getVisibleTasks());
+        });
       }
-    }, 5000);
 
-    // Initial load
-    fetchTasks();
+      applyFiltersBtn.addEventListener('click', () => {
+        fetchTasks();
+      });
+
+      fetchTasks();
+
+      setInterval(() => {
+        fetchTasks();
+        if (lastRefresh) {
+          const diff = Math.round((Date.now() - lastRefresh.getTime()) / 1000);
+          if (diff > 5) {
+            refreshIndicator.textContent = `Auto-refresh: ${diff}s ago`;
+          }
+        }
+      }, 5000);
+    });
   </script>
 </body>
 </html>
