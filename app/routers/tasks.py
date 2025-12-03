@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..ai_logic import build_local_fallback_plan, run_ai_coo_logic
+from ..ai_logic import run_ai_coo_logic
 from ..database import SessionLocal, get_db
 from ..models import AiTaskLog, Task
 from ..schemas import TaskCreate, TaskUpdate
@@ -57,24 +57,12 @@ def process_task_in_background(task_id: int):
         )
         # log_task_event now commits internally
 
-        try:
-            # 2) Run AI logic
-            print(f"[BG] Running AI COO logic for task_id={task_id}")
-            result_text, provider_status = run_ai_coo_logic(task)
-
-        except Exception as e:
-            # External provider failed before we could return a provider_status
-            message = str(e)
-            print(f"[BG] Error while processing task {task_id}: {message!r}")
-
-            if "insufficient_quota" in message or "429" in message:
-                provider_status = "fallback_insufficient_quota"
-            else:
-                provider_status = "fallback_error"
-
-            result_text = build_local_fallback_plan(
-                task.title, getattr(task, "metadata_json", {}) or {}
-            )
+        # 2) Run AI logic
+        print(f"[BG] Running AI COO logic for task_id={task_id}")
+        result_text, provider_status = run_ai_coo_logic(
+            title=task.title,
+            metadata=getattr(task, "metadata_json", {}) or {},
+        )
 
         # 3) -> completed (even if we fell back locally)
         old_status = task.status
@@ -277,7 +265,10 @@ def run_task(
     db.commit()
 
     # 3. Run the AI COO logic synchronously (with fallback)
-    result_text, provider_status = run_ai_coo_logic(task)
+    result_text, provider_status = run_ai_coo_logic(
+        title=task.title,
+        metadata=task.metadata_json or {},
+    )
 
     # 4. Mark as completed, save result, and log final status
     old_status = task.status
@@ -378,7 +369,10 @@ def run_task_debug(
     db.commit()
 
     # 3. Run the AI COO logic synchronously (with fallback)
-    result_text, provider_status = run_ai_coo_logic(task)
+    result_text, provider_status = run_ai_coo_logic(
+        title=task.title,
+        metadata=task.metadata_json or {},
+    )
 
     # 4. Mark as completed, save result, and log final status
     old_status = task.status
