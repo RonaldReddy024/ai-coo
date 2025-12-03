@@ -60,12 +60,13 @@ def process_task_in_background(task_id: int):
         try:
             # 2) Run AI logic
             print(f"[BG] Running AI COO logic for task_id={task_id}")
-            result_text = run_ai_coo_logic(task)
+            result_text, provider_status = run_ai_coo_logic(task)
 
             # 3) -> completed
             old_status = task.status
             task.status = "completed"
             task.result_text = result_text
+            task.external_provider_status = provider_status
             db.commit()
             db.refresh(task)
 
@@ -112,6 +113,7 @@ def serialize_task(task: Task) -> dict:
         "squad": task.squad,
         "metadata_json": task.metadata_json or {},
         "result_text": task.result_text,
+        "external_provider_status": getattr(task, "external_provider_status", None),
         "created_at": task.created_at.isoformat() if task.created_at else None,
     }
 
@@ -183,6 +185,9 @@ async def update_task(task_id: int, update: TaskUpdate, db: Session = Depends(ge
         if update.metadata is not None:
             db_task.metadata_json = update.metadata
 
+        if update.external_provider_status is not None:
+            db_task.external_provider_status = update.external_provider_status
+
         db.commit()
         db.refresh(db_task)
         return {"ok": True, "task": serialize_task(db_task)}
@@ -229,6 +234,7 @@ def run_task_async(
             "created_at": task.created_at.isoformat(),
             "company_id": getattr(task, "company_id", None),
             "squad": getattr(task, "squad", None),
+            "external_provider_status": getattr(task, "external_provider_status", None),
         },
     }
 
@@ -276,12 +282,13 @@ def run_task(
     db.commit()
 
     # 3. Run the AI COO logic synchronously (with fallback)
-    result_text = run_ai_coo_logic(task)
+    result_text, provider_status = run_ai_coo_logic(task)
 
     # 4. Mark as completed, save result, and log final status
     old_status = task.status
     task.status = "completed"
     task.result_text = result_text
+    task.external_provider_status = provider_status
     db.commit()
     db.refresh(task)
 
@@ -329,6 +336,7 @@ def get_task_status(task_id: int, db: Session = Depends(get_db)):
         "title": task.title,
         "status": task.status,
         "result_text": task.result_text,
+        "external_provider_status": getattr(task, "external_provider_status", None),
     }
 
 
@@ -375,12 +383,13 @@ def run_task_debug(
     db.commit()
 
     # 3. Run the AI COO logic synchronously (with fallback)
-    result_text = run_ai_coo_logic(task)
+    result_text, provider_status = run_ai_coo_logic(task)
 
     # 4. Mark as completed, save result, and log final status
     old_status = task.status
     task.status = "completed"
     task.result_text = result_text
+    task.external_provider_status = provider_status
     db.commit()
     db.refresh(task)
 
@@ -404,6 +413,7 @@ def run_task_debug(
             "squad": task.squad,
             "metadata_json": task.metadata_json,
             "result_text": task.result_text,
+            "external_provider_status": getattr(task, "external_provider_status", None),
             "created_at": task.created_at.isoformat(),
         },
     }
