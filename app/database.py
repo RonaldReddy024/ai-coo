@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -52,3 +52,26 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_sqlite_schema(engine):
+    """Ensure SQLite has the columns expected by the ORM models.
+
+    SQLite's ``CREATE TABLE IF NOT EXISTS`` does not add newly introduced
+    columns. For existing local databases we opportunistically add the
+    ``external_provider_status`` column so the app can start without manual
+    migration steps.
+    """
+
+    if engine.url.get_backend_name() != "sqlite":
+        return
+
+    with engine.connect() as conn, conn.begin():
+        columns = {row[1] for row in conn.execute(text("PRAGMA table_info(tasks);"))}
+
+        if "external_provider_status" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE tasks ADD COLUMN external_provider_status VARCHAR DEFAULT 'ok';"
+                )
+            )
