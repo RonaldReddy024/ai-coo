@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Task #{{ task.id }} – {{ task.title }} | WorkYodha AI COO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f7;
+      color: #222;
+    }
+    header {
+      padding: 16px 24px;
+      background: #111827;
+      color: #f9fafb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header a {
+      color: #e5e7eb;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px 32px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1.3fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin: 0 0 6px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .pill-status-completed { background:#ecfdf3; color:#166534; }
+    .pill-status-pending,
+    .pill-status-in_progress { background:#fef9c3; color:#854d0e; }
+    .pill-fallback { background:#fef2f2; color:#b91c1c; }
+    .muted {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+    ul {
+      padding-left: 20px;
+      margin: 6px 0 0;
+    }
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .chip {
+      font-size: 0.8rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #374151;
+    }
+    canvas {
+      max-width: 100%;
+    }
+    .meta-inline {
+      font-size: 0.8rem;
+      color: #4b5563;
+      margin-top: 4px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <div>
+      <div style="font-size:0.95rem; opacity:0.85;">WorkYodha AI COO</div>
+      <div style="font-size:0.75rem; opacity:0.7;">Task productivity view</div>
+    </div>
+    <div>
+      <a href="/dashboard">← Back to dashboard</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h1>#{{ task.id }} · {{ task.title }}</h1>
+      <div class="chip-row">
+        <span class="pill {% if task.status == 'completed' %}pill-status-completed{% else %}pill-status-{{ task.status }}{% endif %}">
+          Status: {{ task.status|upper }}
+        </span>
+
+        {% if provider_status.startswith('fallback') %}
+          <span class="pill pill-fallback">
+            ⚠️ {{ provider_status_pretty }}
+          </span>
+        {% else %}
+          <span class="pill">
+            ✅ {{ provider_status_pretty }}
+          </span>
+        {% endif %}
+
+        {% if task.company_id %}
+          <span class="chip">Company ID: {{ task.company_id }}</span>
+        {% endif %}
+        {% if task.squad %}
+          <span class="chip">Squad: {{ task.squad }}</span>
+        {% endif %}
+      </div>
+      <div class="meta-inline">
+        Created at:
+        {{ task.created_at }}
+      </div>
+      {% if task.metadata_json %}
+        <div class="meta-inline">
+          {% for k, v in task.metadata_json.items() %}
+            {{ k }}: {{ v }}{% if not loop.last %} · {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="section-title">AI-COO Summary</div>
+          <p class="muted">
+            {{ description }}
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Next steps</div>
+          {% if steps %}
+            <ul>
+              {% for s in steps %}
+                <li>{{ s }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No structured steps were detected in this task’s result_text.</p>
+          {% endif %}
+        </div>
+
+        <div class="card">
+          <div class="section-title">Data needed</div>
+          {% if data_needed %}
+            <ul>
+              {% for d in data_needed %}
+                <li>{{ d }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No explicit data requirements were found.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="section-title">Productivity snapshot</div>
+          <p class="muted">
+            This chart gives a quick feel for how “heavy” this task is:
+            number of steps, risks, and data dependencies.
+          </p>
+          <canvas id="taskChart"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Risks</div>
+          {% if risks %}
+            <ul>
+              {% for r in risks %}
+                <li>{{ r }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No risks parsed from this task yet.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const stepsCount = {{ steps|length }};
+      const risksCount = {{ risks|length }};
+      const dataNeededCount = {{ data_needed|length }};
+
+      const ctx = document.getElementById('taskChart');
+      if (!ctx) return;
+
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Steps', 'Risks', 'Data needed'],
+          datasets: [{
+            label: 'Task complexity',
+            data: [stepsCount, risksCount, dataNeededCount]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              precision: 0
+            }
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
