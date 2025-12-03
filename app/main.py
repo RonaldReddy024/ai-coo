@@ -8,12 +8,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from . import models  # register models
-from .database import Base, engine, get_db
+from .database import Base, engine, ensure_sqlite_schema, get_db
 from .models import Task
 from .routers import auth, companies, integrations, sprints, tasks
 from .supabase_client import SUPABASE_AVAILABLE, supabase
 
 Base.metadata.create_all(bind=engine)
+ensure_sqlite_schema(engine)
 
 app = FastAPI(title="WorkYodha AI COO for SaaS")
 templates = Jinja2Templates(directory="app/templates")
