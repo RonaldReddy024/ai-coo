@@ -167,7 +167,7 @@
   <div class="filters">
     <label>
       Status
-      <select id="statusFilter">
+      <select id="filter-status">
         <option value="">All</option>
         <option value="pending">Pending</option>
         <option value="running">Running</option>
@@ -177,15 +177,15 @@
 
     <label>
       Squad
-      <input id="squadFilter" type="text" placeholder="e.g. finance" />
+      <input id="filter-squad" type="text" placeholder="e.g. finance" />
     </label>
 
     <label>
       Company ID
-      <input id="companyFilter" type="number" min="1" placeholder="e.g. 1" />
+      <input id="filter-company" type="number" min="1" placeholder="e.g. 1" />
     </label>
 
-    <button id="applyFiltersBtn">Apply filters</button>
+    <button id="apply-filters">Apply filters</button>
 
     <span class="refresh-indicator" id="refreshIndicator">
       Auto-refresh: every 5s
@@ -219,212 +219,187 @@
   </table>
 
   <script>
-    const tasksBody = document.getElementById('tasksBody');
-    const statusFilter = document.getElementById('statusFilter');
-    const squadFilter = document.getElementById('squadFilter');
-    const companyFilter = document.getElementById('companyFilter');
-    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
-    const refreshIndicator = document.getElementById('refreshIndicator');
+let allTasks = [];
+let showFallbackOnly = false;
 
-    let allTasks = [];
-    let showFallbackOnly = false;
-    let lastRefresh = null;
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-    function escapeHtml(str) {
-      if (!str && str !== 0) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+async function fetchTasks() {
+  try {
+    const params = new URLSearchParams();
+
+    const statusEl = document.getElementById("filter-status");
+    const squadEl = document.getElementById("filter-squad");
+    const companyEl = document.getElementById("filter-company");
+
+    const status = statusEl ? statusEl.value : "";
+    const squad = squadEl ? squadEl.value : "";
+    const companyId = companyEl ? companyEl.value : "";
+
+    if (status) params.append("status", status);
+    if (squad) params.append("squad", squad);
+    if (companyId) params.append("company_id", companyId);
+
+    params.append("limit", "100");
+
+    const res = await fetch(`/tasks?${params.toString()}`);
+    const data = await res.json();
+
+    allTasks = data.tasks || [];
+
+    updateSummary(allTasks);
+    renderTasks(getVisibleTasks());
+  } catch (err) {
+    console.error("Error fetching tasks:", err);
+  }
+}
+
+function getVisibleTasks() {
+  if (!showFallbackOnly) return allTasks;
+
+  return allTasks.filter((task) => {
+    const status = (task.external_provider_status || "").toLowerCase();
+    return status.startsWith("fallback");
+  });
+}
+
+function updateSummary(tasks) {
+  const total = tasks.length;
+
+  let externalCount = 0;
+  let fallbackCount = 0;
+
+  for (const t of tasks) {
+    const st = (t.external_provider_status || "ok").toLowerCase();
+    if (st === "ok" || st === "") {
+      externalCount++;
+    } else if (st.startsWith("fallback")) {
+      fallbackCount++;
+    }
+  }
+  const totalEl = document.getElementById("summary-total");
+  const externalEl = document.getElementById("summary-external");
+  const fallbackEl = document.getElementById("summary-fallback");
+
+  if (totalEl) totalEl.textContent = `${total} task${total === 1 ? "" : "s"}`;
+  if (externalEl) externalEl.textContent = `${externalCount} ✅ External`;
+  if (fallbackEl) fallbackEl.textContent = `${fallbackCount} ⚠️ Fallback`;
+}
+
+function renderTasks(tasks) {
+  const tbody = document.getElementById("tasksBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (!tasks || tasks.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center; padding: 12px;">
+          No tasks found
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  for (const task of tasks) {
+    const row = document.createElement("tr");
+
+    const created = task.created_at
+      ? new Date(task.created_at).toLocaleString()
+      : "";
+
+    const status = task.status || "unknown";
+    let badgeClass = "";
+    if (status === "completed") badgeClass = "badge-completed";
+    else if (status === "pending" || status === "in_progress") badgeClass = "badge-pending";
+    else badgeClass = "badge-unknown";
+
+    const metaParts = [];
+    if (task.metadata_json) {
+      for (const [key, value] of Object.entries(task.metadata_json)) {
+        metaParts.push(`${key}: ${value}`);
+      }
     }
 
-    async function fetchTasks() {
-      try {
-        const params = new URLSearchParams();
+    const metaText = metaParts.join(" · ");
 
-        const status = statusFilter?.value.trim() || '';
-        const squad = squadFilter?.value.trim() || '';
-        const company = companyFilter?.value.trim() || '';
-
-
-        if (status) params.append('status', status);
-        if (squad) params.append('squad', squad);
-        if (company) params.append('company_id', company);
-
-        params.append('limit', '100');
+    const providerStatus = (task.external_provider_status || "ok").toLowerCase();
+    let providerCellHtml = "";
+    if (providerStatus === "fallback_insufficient_quota") {
+      providerCellHtml = `
+        <span title="Fallback used due to insufficient quota">
+          ⚠️ Fallback (quota)
+        </span>
+      `;
+    } else if (providerStatus.startsWith("fallback")) {
+      providerCellHtml = `
+        <span title="Fallback used due to external error">
+          ⚠️ Fallback
+        </span>
+      `;
+    } else {
+      providerCellHtml = `
+        <span title="External AI provider OK">
+          ✅ External
+        </span>
+      `;
     }
 
-        const res = await fetch(`/tasks?${params.toString()}`);
-        if (!res.ok) {
-          console.error('Failed to fetch tasks', res.status);
-          return;
-        }
-        const data = await res.json();
 
-        allTasks = data.tasks || [];
+    row.innerHTML = `
+      <td>#${escapeHtml(task.id)}</td>
+      <td>
+        <strong>${escapeHtml(task.title)}</strong>
+        <div class="meta">${escapeHtml(metaText)}</div>
+      </td>
+      <td>
+        ${task.company_id ? "Company " + escapeHtml(task.company_id) : "–"}
+        ${task.squad ? " · Squad: " + escapeHtml(task.squad) : ""}
+      </td>
+      <td>
+        <span class="badge ${badgeClass}">
+          ${escapeHtml(status.toUpperCase())}
+        </span>
+      </td>
+      <td>${providerCellHtml}</td>
+      <td>${escapeHtml(created)}</td>
+    `;
 
-        updateSummary(allTasks);
-        renderTasks(getVisibleTasks());
-        lastRefresh = new Date();
-        refreshIndicator.textContent = 'Auto-refresh: just now';
-      } catch (err) {
-        console.error('Error fetching tasks', err);
-        refreshIndicator.textContent = 'Auto-refresh: error (see console)';
-      }
-    }
-    function getVisibleTasks() {
-      if (!showFallbackOnly) return allTasks;
+    tbody.appendChild(row);
+  }
+}
 
-      return allTasks.filter((task) => {
-        const status = (task.external_provider_status || '').toLowerCase();
-        return status.startsWith('fallback');
-      });
-    }
-
-    function updateSummary(tasks) {
-      const total = tasks.length;
-
-      let externalCount = 0;
-      let fallbackCount = 0;
-
-      for (const t of tasks) {
-        const status = (t.external_provider_status || 'ok').toLowerCase();
-        if (status === 'ok' || status === '') {
-          externalCount++;
-        } else if (status.startsWith('fallback')) {
-          fallbackCount++;
-        }
-      }
-
-      const totalEl = document.getElementById('summary-total');
-      const externalEl = document.getElementById('summary-external');
-      const fallbackEl = document.getElementById('summary-fallback');
-
-      if (totalEl) {
-        totalEl.textContent = `${total} task${total === 1 ? '' : 's'}`;
-      }
-      if (externalEl) {
-        externalEl.textContent = `${externalCount} ✅ External`;
-      }
-      if (fallbackEl) {
-        fallbackEl.textContent = `${fallbackCount} ⚠️ Fallback`;
-      }
-    }
-
-    function renderTasks(tasks) {
-      if (!Array.isArray(tasks)) tasks = [];
-      tasksBody.innerHTML = '';
-
-      if (tasks.length === 0) {
-        tasksBody.innerHTML = `
-          <tr>
-            <td colspan="6" style="text-align:center; color:#6b7280; padding: 24px 0;">
-              No tasks found for current filters.
-            </td>
-          </tr>`;
-        return;
-      }
-
-      for (const task of tasks) {
-        const status = (task.status || 'pending').toLowerCase();
-        const badgeClass = 'status-' + status;
-
-        let metaText = '';
-        if (task.metadata_json) {
-          try {
-            // metadata_json may already be an object
-            const meta = typeof task.metadata_json === 'string'
-              ? JSON.parse(task.metadata_json)
-              : task.metadata_json;
-
-            const entries = Object.entries(meta).map(
-              ([k, v]) => `${k}: ${v}`
-            );
-            metaText = entries.join('\n');
-          } catch (e) {
-            metaText = typeof task.metadata_json === 'string'
-              ? task.metadata_json
-              : JSON.stringify(task.metadata_json);
-          }
-        }
-
-        const created = task.created_at || '';
-        const providerStatus = (task.external_provider_status || 'ok').toLowerCase();
-
-        let providerCellHtml = '';
-        if (providerStatus === 'fallback_insufficient_quota') {
-          providerCellHtml = `
-            <span title="Fallback used due to insufficient quota">
-              ⚠️ Fallback (quota)
-            </span>
-          `;
-        } else if (providerStatus.startsWith('fallback')) {
-          providerCellHtml = `
-            <span title="Fallback used due to external error">
-              ⚠️ Fallback
-            </span>
-          `;
-        } else {
-          providerCellHtml = `
-            <span title="External AI provider OK">
-              ✅ External
-            </span>
-          `;
-        }
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>#${escapeHtml(task.id)}</td>
-          <td>
-            <strong>${escapeHtml(task.title)}</strong>
-            <div class="meta">${escapeHtml(metaText)}</div>
-          </td>
-          <td>
-            ${task.company_id ? 'Company ' + escapeHtml(task.company_id) : '–'}
-            ${task.squad ? ' · Squad: ' + escapeHtml(task.squad) : ''}
-          </td>
-          <td>
-            <span class="badge ${badgeClass}">
-              ${escapeHtml(status.toUpperCase())}
-            </span>
-          </td>
-          <td>${providerCellHtml}</td>
-          <td>${escapeHtml(created)}</td>
-        `;
-        tasksBody.appendChild(row);
-      }
-    }
-    document.addEventListener('DOMContentLoaded', () => {
-      const toggleBtn = document.getElementById('toggle-fallback');
-      if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-          showFallbackOnly = !showFallbackOnly;
-
-          toggleBtn.textContent = showFallbackOnly
-            ? 'Show all tasks'
-            : 'Show only ⚠️ Fallback';
-
-          renderTasks(getVisibleTasks());
-        });
-      }
-
-      applyFiltersBtn.addEventListener('click', () => {
-        fetchTasks();
-      });
-
-      fetchTasks();
-
-      setInterval(() => {
-        fetchTasks();
-        if (lastRefresh) {
-          const diff = Math.round((Date.now() - lastRefresh.getTime()) / 1000);
-          if (diff > 5) {
-            refreshIndicator.textContent = `Auto-refresh: ${diff}s ago`;
-          }
-        }
-      }, 5000);
+document.addEventListener("DOMContentLoaded", () => {
+  const toggleBtn = document.getElementById("toggle-fallback");
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      showFallbackOnly = !showFallbackOnly;
+      toggleBtn.textContent = showFallbackOnly
+        ? "Show all tasks"
+        : "Show only ⚠️ Fallback";
+      renderTasks(getVisibleTasks());
     });
-  </script>
+  }
+
+  const applyFiltersBtn = document.getElementById("apply-filters");
+  if (applyFiltersBtn) {
+    applyFiltersBtn.addEventListener("click", () => {
+      fetchTasks();
+    });
+  }
+
+  fetchTasks();
+  setInterval(fetchTasks, 5000);
+});
+</script>
 </body>
 </html>
