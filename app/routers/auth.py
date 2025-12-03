@@ -4,8 +4,9 @@ from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from ..config import settings
 from ..supabase_client import SUPABASE_AVAILABLE, supabase
+
+BASE_URL = "http://127.0.0.1:8000"
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -27,7 +28,7 @@ async def send_magic_link(request: Request, email: str = Form(...)):
             detail="Supabase authentication is not configured on this server.",
         )
 
-    redirect_url = f"{settings.SITE_URL}/magic-login"
+    redirect_url = f"{BASE_URL}/magic-login"
 
     res = supabase.auth.sign_in_with_otp(
         {
@@ -51,7 +52,6 @@ async def send_magic_link(request: Request, email: str = Form(...)):
 
 
 @router.get("/auth/callback", response_class=HTMLResponse)
-@router.get("/magic-login", response_class=HTMLResponse)
 async def auth_callback(
     request: Request,
     token_hash: Optional[str] = Query(None),
@@ -104,3 +104,16 @@ async def auth_callback(
         samesite="lax",
     )
     return response
+
+
+@router.get("/magic-login")
+async def magic_login(
+    request: Request,
+    token_hash: Optional[str] = Query(None),
+    token: Optional[str] = Query(None),
+):
+    """
+    DEV MODE:
+    Any magic link -> treat as logged in and send user to dashboard.
+    """
+    return RedirectResponse(url="/dashboard", status_code=302)
