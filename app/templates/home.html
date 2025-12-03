@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WorkYodha AI COO – Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #020617 100%);
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    .shell {
+      max-width: 960px;
+      width: 100%;
+      margin: 32px 16px;
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 24px;
+    }
+    @media (max-width: 800px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.55);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #f97316;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 2rem;
+      margin: 0 0 10px;
+      color: #f9fafb;
+    }
+    .highlight {
+      color: #22c55e;
+      font-weight: 600;
+    }
+    p {
+      margin: 0 0 12px;
+      color: #cbd5f5;
+      font-size: 0.95rem;
+    }
+    .pill-row {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pill {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(30, 64, 175, 0.25);
+      border: 1px solid rgba(129, 140, 248, 0.6);
+      color: #e5e7eb;
+    }
+    .actions {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: none;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 500;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #022c22;
+      box-shadow: 0 12px 25px rgba(22, 163, 74, 0.4);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(22, 163, 74, 0.55);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: #e5e7eb;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+    }
+    .btn-ghost:hover {
+      background: rgba(15, 23, 42, 0.9);
+    }
+    .muted {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 8px;
+    }
+    .right-card-title {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+    .login-label {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    .login-input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+    .login-input::placeholder {
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- Left: hero / overview -->
+    <div class="card">
+      <div class="logo">WorkYodha · AI COO</div>
+      <h1>See which <span class="highlight">engineering work</span> is silently stuck.</h1>
+      <p>
+        WorkYodha scans tasks, squads, and sprints so you can spot
+        <span class="highlight">risk to revenue</span> and unblock teams before it hurts the numbers.
+      </p>
+      <p>
+        This instance is running locally at <code>127.0.0.1:8000</code>.
+        Use the dashboard to test tasks, squads, and AI fallback behaviour.
+      </p>
+
+      <div class="pill-row">
+        <span class="pill">🧠 AI workflow copilot</span>
+        <span class="pill">📊 Task + squad risk view</span>
+        <span class="pill">₹-native reporting (INR)</span>
+      </div>
+
+      <div class="actions">
+        <a href="/dashboard" class="btn btn-primary">Open dashboard</a>
+        <a href="/login" class="btn btn-ghost">Go to login</a>
+      </div>
+
+      <div class="muted">
+        Tip: keep <code>/health</code> for monitoring and use this page as the
+        main entrypoint for humans.
+      </div>
+    </div>
+
+    <!-- Right: simple login card (placeholder) -->
+    <div class="card">
+      <div class="right-card-title">Quick access</div>
+
+      <div class="login-label">Email</div>
+      <input class="login-input" type="email" placeholder="you@company.com" />
+
+      <div class="login-label">Password</div>
+      <input class="login-input" type="password" placeholder="••••••••" />
+
+      <a href="/dashboard" class="btn btn-primary" style="width:100%; margin-top:8px;">
+        Sign in (demo)
+      </a>
+
+      <p class="muted">
+        This is a demo UI only – it doesn’t enforce real authentication yet.
+        Wire it up to your auth layer when you’re ready.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
