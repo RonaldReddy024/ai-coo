@@ -27,7 +27,7 @@ async def send_magic_link(request: Request, email: str = Form(...)):
             detail="Supabase authentication is not configured on this server.",
         )
 
-    redirect_url = f"{settings.SITE_URL}/auth/callback"
+    redirect_url = f"{settings.SITE_URL}/magic-login"
 
     res = supabase.auth.sign_in_with_otp(
         {
@@ -51,12 +51,16 @@ async def send_magic_link(request: Request, email: str = Form(...)):
 
 
 @router.get("/auth/callback", response_class=HTMLResponse)
+@router.get("/magic-login", response_class=HTMLResponse)
 async def auth_callback(
     request: Request,
     token_hash: Optional[str] = Query(None),
+    token: Optional[str] = Query(None),
     type: str = Query("email"),
 ):
-    if not token_hash:
+    raw_token = token_hash or token
+
+    if not raw_token:
         return templates.TemplateResponse(
             "magic_error.html",
             {
@@ -75,7 +79,7 @@ async def auth_callback(
 
     verify_res = supabase.auth.verify_otp(
         {
-            "token_hash": token_hash,
+            "token_hash": raw_token,
             "type": type,
         }
     )
