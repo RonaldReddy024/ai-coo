@@ -83,6 +83,9 @@ class Task(Base):
     metadata_json = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Track whether the external provider succeeded or we fell back locally
+    external_provider_status = Column(String, nullable=True, default="ok")
+
     # NEW: multi-tenant linkage
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     squad = Column(String, nullable=True)  # e.g. "growth", "platform", "success"
