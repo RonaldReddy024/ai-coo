@@ -1,9 +1,9 @@
 import os
-from pathlib import Path
 from typing import Optional
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from .database import get_db, SessionLocal
@@ -18,7 +18,15 @@ from .supabase_client import SUPABASE_AVAILABLE, supabase
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="WorkYodha AI COO for SaaS")
+templates = Jinja2Templates(directory="app/templates")
 
+
+@app.get("/")
+async def health_check():
+    return {
+        "status": "ok",
+        "app": "WorkYodha AI COO backend running",
+    }
 
 def log_task_event(
     db: Session,
@@ -135,12 +143,18 @@ app.include_router(auth.router, tags=["auth"])
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def serve_dashboard():
-    html_path = Path(__file__).parent / "dashboard.html"
-    if not html_path.exists():
-        raise HTTPException(status_code=404, detail="Dashboard not found")
-
-    return HTMLResponse(html_path.read_text(encoding="utf-8"))
+async def dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    tasks = db.query(Task).order_by(Task.created_at.desc()).limit(100).all()
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "tasks": tasks,
+        },
+    )
 
 
 # Optional: simple health endpoint
