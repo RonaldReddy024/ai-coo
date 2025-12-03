@@ -127,6 +127,7 @@ def list_company_tasks(
             "squad": t.squad,
             "metadata_json": t.metadata_json or {},
             "created_at": t.created_at.isoformat(),
+            "external_provider_status": getattr(t, "external_provider_status", None),
         }
         for t in tasks
     ]
