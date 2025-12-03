@@ -64,10 +64,11 @@ def process_task_in_background(task_id: int):
             print(f"[BG] Task {task_id} not found, aborting")
             return
 
-        # 1) -> in_progress
+        task.status = "running"
         old_status = task.status
         task.status = "in_progress"
         db.commit()
+        db.refresh(task)
 
         log_task_event(
             db=db,
@@ -81,7 +82,11 @@ def process_task_in_background(task_id: int):
         try:
             # 2) Run AI logic
             print(f"[BG] Running AI COO logic for task_id={task_id}")
-            result_text = run_ai_coo_logic(task)
+            result_text = run_ai_coo_logic(
+                title=task.title,
+                metadata=task.metadata_json or {},
+                currency="INR",
+            )
 
             # 3) -> completed
             old_status = task.status
@@ -306,24 +311,10 @@ def run_task_async(
     db.commit()
     db.refresh(task)
 
-    # TEMPORARILY disable event logging
-    # log_task_event(...)
-
     background_tasks.add_task(process_task_in_background, task.id)
 
-    # Return immediately
-    return {
-        "ok": True,
-        "task": {
-            "id": task.id,
-            "title": task.title,
-            "status": task.status,  # pending
-            "metadata_json": task.metadata_json,
-            "created_at": task.created_at.isoformat(),
-            "company_id": getattr(task, "company_id", None),
-            "squad": getattr(task, "squad", None),
-        },
-    }
+    # Return immediately with a serialized task payload
+    return {"ok": True, "task": serialize_task(task)}
 
 
 @app.post("/tasks/run")
