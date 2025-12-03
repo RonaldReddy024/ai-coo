@@ -19,13 +19,25 @@ app = FastAPI(title="WorkYodha AI COO for SaaS")
 templates = Jinja2Templates(directory="app/templates")
 
 
-@app.get("/")
-async def health_check():
-    return {
-        "status": "ok",
-        "app": "WorkYodha AI COO backend running",
-    }
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    """
+    Public homepage – shows intro + login/dashboard entry.
+    """
+    return templates.TemplateResponse("home.html", {"request": request})
 
+
+@app.get("/health")
+def health():
+    """
+    JSON health check for curl / monitoring.
+    """
+    return {"status": "ok", "app": "WorkYodha AI COO backend running"}
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "message": None})
 
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
@@ -180,7 +192,7 @@ def task_detail_page(
 
 # Optional: simple health endpoint
 @app.get("/api/health")
-def health():
+def api_health():
     return {"status": "ok", "app": "WorkYodha AI COO backend running"}
 
 
