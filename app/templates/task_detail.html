@@ -210,6 +210,56 @@
           {% endif %}
         </div>
       </div>
+
+        <div class="card">
+          <div class="section-title">Related squad tasks</div>
+
+          {% if blocking_upstream %}
+            <p class="muted">
+              ⚠️ This task may depend on
+              <strong>{{ blocking_upstream|length }}</strong>
+              earlier tasks in the same company/squad that are <strong>not completed yet</strong>.
+            </p>
+          {% else %}
+            <p class="muted">
+              No obvious blocking tasks detected in this squad. All older tasks are completed.
+            </p>
+          {% endif %}
+
+          {% if upstream_tasks %}
+            <div class="section-title" style="margin-top:10px;">Potential prerequisites (older)</div>
+            <ul>
+              {% for t in upstream_tasks %}
+                <li>
+                  <a href="/tasks/{{ t.id }}/view">
+                    #{{ t.id }} · {{ t.title }}
+                  </a>
+                  {% if t.status != "completed" %}
+                    <span class="pill pill-fallback">🕒 {{ t.status|upper }}</span>
+                  {% else %}
+                    <span class="pill pill-status-completed">✓ COMPLETED</span>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+
+          {% if downstream_tasks %}
+            <div class="section-title" style="margin-top:10px;">Follow-up tasks (newer)</div>
+            <ul>
+              {% for t in downstream_tasks %}
+                <li>
+                  <a href="/tasks/{{ t.id }}/view">
+                    #{{ t.id }} · {{ t.title }}
+                  </a>
+                  <span class="pill pill-status-{{ t.status }}">
+                    {{ t.status|upper }}
+                  </span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
     </div>
   </div>
 
