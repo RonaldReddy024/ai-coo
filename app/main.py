@@ -131,6 +131,37 @@ def task_detail_page(
     else:
         provider_status_pretty = "External AI OK"
 
+    # ── NEW: related tasks in same company + squad ─────────────────
+    upstream_tasks = []
+    downstream_tasks = []
+    blocking_upstream = []
+
+    if task.company_id is not None and task.squad:
+        base_q = (
+            db.query(Task)
+            .filter(
+                Task.company_id == task.company_id,
+                Task.squad == task.squad,
+                Task.id != task.id,
+            )
+        )
+
+        upstream_tasks = (
+            base_q.filter(Task.created_at < task.created_at)
+            .order_by(Task.created_at.desc())
+            .limit(5)
+            .all()
+        )
+
+        downstream_tasks = (
+            base_q.filter(Task.created_at > task.created_at)
+            .order_by(Task.created_at.asc())
+            .limit(5)
+            .all()
+        )
+
+        blocking_upstream = [t for t in upstream_tasks if t.status != "completed"]
+
     context = {
         "request": request,
         "task": task,
@@ -140,6 +171,9 @@ def task_detail_page(
         "data_needed": data_needed,
         "provider_status_pretty": provider_status_pretty,
         "provider_status": provider_status,
+        "upstream_tasks": upstream_tasks,
+        "downstream_tasks": downstream_tasks,
+        "blocking_upstream": blocking_upstream,
     }
     return templates.TemplateResponse("task_detail.html", context)
 
