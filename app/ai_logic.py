@@ -1,11 +1,12 @@
 import logging
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 logger = logging.getLogger(__name__)
+
 
 def build_local_fallback_plan(
     title: str, metadata: Dict[str, Any], currency: str = "INR"
@@ -37,43 +38,25 @@ Note:
 - Used the built-in local INR-based playbook instead."""
 
 
-def _extract_title_and_metadata(task_or_title, metadata):
-    """Support both Task objects and explicit title/metadata arguments."""
-
-    if isinstance(task_or_title, str):
-        return task_or_title, metadata or {}
-
-    # Fallback for callers passing a Task-like object
-    return getattr(task_or_title, "title", ""), getattr(task_or_title, "metadata_json", {}) or {}
-
-
-def run_ai_coo_logic(
-    task_or_title, metadata=None, currency: str = "INR"
-) -> Tuple[str, str]:
-    """Generate an execution plan, enforcing an INR-first theme.
-
-
-    Returns a tuple of (result_text, external_provider_status) where the status
-    is "ok" if the external provider succeeded or a fallback_* value otherwise.
-
-    Accepts either a Task ORM object or a raw title/metadata pair so the
-    background worker can call it without loading extra relationships.
+def run_ai_coo_logic(title: str, metadata: dict) -> tuple[str, str]:
+    """
+    Returns: (result_text, external_provider_status)
+    external_provider_status:
+      - "ok"                        -> external AI used successfully
+      - "fallback_insufficient_quota" -> quota/429 error, INR fallback used
+      - "fallback_error"           -> some other error, INR fallback used
     """
 
-    title, metadata_dict = _extract_title_and_metadata(task_or_title, metadata)
-
-    prompt = f"""
+    try:
+        prompt = f"""
 You are an AI COO. Create a structured execution plan.
 
 Task title: {title}
-Metadata: {metadata_dict}
+Metadata: {metadata}
 
-Use {currency} for all currency references.
-    """.strip()
+Use INR (₹) for all currency references.
+        """.strip()
 
-    provider_status = "ok"
-
-    try:
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
@@ -88,16 +71,16 @@ Use {currency} for all currency references.
         )
 
         result_text = response.choices[0].message.content.strip()
-        return result_text, provider_status
+        return result_text, "ok"
 
     except Exception as e:
-        message = str(e)
-        logger.error("[AI-COO] External provider error: %s", message)
+        msg = str(e)
+        logger.error(f"[AI-COO] External provider error: {msg}")
 
-        if "insufficient_quota" in message or "429" in message:
+        if "insufficient_quota" in msg or "429" in msg:
             provider_status = "fallback_insufficient_quota"
         else:
             provider_status = "fallback_error"
 
-        result_text = build_local_fallback_plan(title, metadata_dict, currency)
+        result_text = build_local_fallback_plan(title, metadata or {}, currency="INR")
         return result_text, provider_status
