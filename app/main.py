@@ -1,6 +1,8 @@
 import os
+from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, Depends, Request
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -30,6 +32,33 @@ app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
 app.include_router(companies.router)
 app.include_router(auth.router, tags=["auth"])
 app.include_router(tasks.router)
+
+
+@app.get("/tasks")
+def list_tasks(
+    limit: int = 100,
+    status: Optional[str] = None,
+    squad: Optional[str] = None,
+    company_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    List recent tasks for the dashboard.
+    Supports optional filters: status, squad, company_id.
+    """
+    query = db.query(models.Task).order_by(models.Task.created_at.desc())
+
+    if status:
+        query = query.filter(models.Task.status == status)
+
+    if squad:
+        query = query.filter(models.Task.squad == squad)
+
+    if company_id is not None:
+        query = query.filter(models.Task.company_id == company_id)
+
+    tasks = query.limit(limit).all()
+    return {"ok": True, "tasks": tasks}
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
