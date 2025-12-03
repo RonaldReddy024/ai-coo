@@ -173,6 +173,7 @@
         <th>Title / Metadata</th>
         <th style="width: 180px;">Company / Squad</th>
         <th style="width: 120px;">Status</th>
+        <th style="width: 140px;">Provider</th>
         <th style="width: 190px;">Created</th>
       </tr>
     </thead>
@@ -246,7 +247,7 @@
       if (tasks.length === 0) {
         tasksBody.innerHTML = `
           <tr>
-            <td colspan="5" style="text-align:center; color:#6b7280; padding: 24px 0;">
+            <td colspan="6" style="text-align:center; color:#6b7280; padding: 24px 0;">
               No tasks found for current filters.
             </td>
           </tr>`;
@@ -277,7 +278,28 @@
         }
 
         const created = task.created_at || '';
+        const providerStatus = (task.external_provider_status || 'ok').toLowerCase();
 
+        let providerCellHtml = '';
+        if (providerStatus === 'fallback_insufficient_quota') {
+          providerCellHtml = `
+            <span title="Fallback used due to insufficient quota">
+              ⚠️ Fallback (quota)
+            </span>
+          `;
+        } else if (providerStatus.startsWith('fallback')) {
+          providerCellHtml = `
+            <span title="Fallback used due to external error">
+              ⚠️ Fallback
+            </span>
+          `;
+        } else {
+          providerCellHtml = `
+            <span title="External AI provider OK">
+              ✅ External
+            </span>
+          `;
+        }
         const row = document.createElement('tr');
         row.innerHTML = `
           <td>#${escapeHtml(task.id)}</td>
@@ -294,6 +316,7 @@
               ${escapeHtml(status.toUpperCase())}
             </span>
           </td>
+          <td>${providerCellHtml}</td>
           <td>${escapeHtml(created)}</td>
         `;
         tasksBody.appendChild(row);
