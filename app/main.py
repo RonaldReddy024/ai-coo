@@ -1,8 +1,7 @@
 import os
 from typing import Optional
 
-from fastapi import FastAPI, Depends, Request
-from fastapi import HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -33,6 +32,28 @@ app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
 app.include_router(companies.router)
 app.include_router(auth.router, tags=["auth"])
 app.include_router(tasks.router)
+
+
+def _parse_section_block(text: str, header: str) -> list[str]:
+    if not text:
+        return []
+    marker = header + "\n"
+    start = text.find(marker)
+    if start == -1:
+        return []
+    start += len(marker)
+    end = text.find("\n\n", start)
+    if end == -1:
+        end = len(text)
+    block = text[start:end].strip()
+    lines = []
+    for line in block.splitlines():
+        line = line.strip()
+        if line.startswith("- "):
+            line = line[2:]
+        if line:
+            lines.append(line)
+    return lines
 
 
 @app.get("/tasks")
@@ -80,6 +101,47 @@ async def dashboard(
             "tasks": tasks,
         },
     )
+
+
+@app.get("/tasks/{task_id}/view", response_class=HTMLResponse)
+def task_detail_page(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    result_text = task.result_text or ""
+
+    steps = _parse_section_block(result_text, "Steps:")
+    risks = _parse_section_block(result_text, "Risks:")
+    data_needed = _parse_section_block(result_text, "DataNeeded:")
+
+    description = ""
+    if result_text:
+        description = result_text.split("\n\n", 1)[0]
+
+    provider_status = (task.external_provider_status or "ok").lower()
+    if provider_status == "fallback_insufficient_quota":
+        provider_status_pretty = "Fallback (quota / insufficient credits)"
+    elif provider_status.startswith("fallback"):
+        provider_status_pretty = "Fallback (external error)"
+    else:
+        provider_status_pretty = "External AI OK"
+
+    context = {
+        "request": request,
+        "task": task,
+        "description": description,
+        "steps": steps,
+        "risks": risks,
+        "data_needed": data_needed,
+        "provider_status_pretty": provider_status_pretty,
+        "provider_status": provider_status,
+    }
+    return templates.TemplateResponse("task_detail.html", context)
 
 
 # Optional: simple health endpoint
