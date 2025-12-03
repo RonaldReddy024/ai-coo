@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Form, HTTPException, Request
+from typing import Optional
+
+from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -48,8 +50,23 @@ async def send_magic_link(request: Request, email: str = Form(...)):
     )
 
 
-@router.get("/auth/callback")
-async def auth_callback(token_hash: str, type: str = "email"):
+@router.get("/auth/callback", response_class=HTMLResponse)
+async def auth_callback(
+    request: Request,
+    token_hash: Optional[str] = Query(None),
+    type: str = Query("email"),
+):
+    if not token_hash:
+        return templates.TemplateResponse(
+            "magic_error.html",
+            {
+                "request": request,
+                "error_message": (
+                    "This login link is missing a token or has been opened incorrectly."
+                ),
+            },
+        )
+
     if not SUPABASE_AVAILABLE:
         raise HTTPException(
             status_code=503,
@@ -65,7 +82,15 @@ async def auth_callback(token_hash: str, type: str = "email"):
 
     session = getattr(verify_res, "session", None)
     if not session:
-        return RedirectResponse(url="/login")
+        return templates.TemplateResponse(
+            "magic_error.html",
+            {
+                "request": request,
+                "error_message": (
+                    "This login link is invalid or has expired."
+                ),
+            },
+        )
 
     response = RedirectResponse(url="/dashboard")
     response.set_cookie(
