@@ -1,11 +1,12 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..ai_logic import analyze_task_relationships, run_ai_coo_logic
+from ..ai_logic import run_ai_coo_logic
 from ..database import SessionLocal, get_db
 from ..deps import get_current_user_email
 from ..models import AiTaskLog, Task
 from ..schemas import TaskCreate, TaskUpdate
+from ..services.task_logic import analyze_task_relationships
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -105,26 +106,24 @@ def serialize_task(task: Task) -> dict:
 
 
 def apply_relationships_and_next_steps(db: Session, task: Task):
-    all_tasks = db.query(Task).all()
+    task.next_steps = analyze_task_relationships(db, task)
 
-    next_steps, depends_on_ids, blocks_ids = analyze_task_relationships(task, all_tasks)
-
-    task.next_steps = next_steps
-
-    if depends_on_ids:
-        deps = db.query(Task).filter(Task.id.in_(depends_on_ids)).all()
-        for dep in deps:
-            if dep not in task.depends_on:
-                task.depends_on.append(dep)
-
-    if blocks_ids:
-        blocked = db.query(Task).filter(Task.id.in_(blocks_ids)).all()
-        for blk in blocked:
-            if blk not in task.blocks:
-                task.blocks.append(blk)
+    if not task.result_text:
+        task.result_text = f"AI-COO processed task: {task.title}"
 
     db.commit()
     db.refresh(task)
+
+    
+@router.post("/recompute_next_steps")
+def recompute_next_steps(db: Session = Depends(get_db)):
+    tasks = db.query(Task).all()
+    for task in tasks:
+        task.next_steps = analyze_task_relationships(db, task)
+        if not task.result_text:
+            task.result_text = f"AI-COO processed task: {task.title}"
+    db.commit()
+    return {"ok": True, "updated": len(tasks)}
 
 
 @router.get("/", name="list_tasks")
