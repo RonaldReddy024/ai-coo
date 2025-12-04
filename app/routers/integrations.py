@@ -2,12 +2,26 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 import httpx
+from pydantic import BaseModel
 
 from ..deps import get_db
 from ..config import settings
 from .. import models
+from ..services.whatsapp import whatsapp_service
 
 router = APIRouter()
+
+
+class WhatsAppMessage(BaseModel):
+    sender: str
+    message: str
+    squad: str | None = None
+
+
+class WhatsAppAlert(BaseModel):
+    to: str
+    text: str
+
 
 @router.post("/jira/import-project")
 async def import_jira_project(jira_project_key: str, company_id: int, db: Session = Depends(get_db)):
@@ -98,3 +112,27 @@ async def slack_test_message(channel: str = "#general"):
         raise HTTPException(status_code=400, detail=f"Slack error: {resp.text}")
 
     return {"message": "Test message sent to Slack"}
+
+
+@router.post("/whatsapp/ingest")
+def whatsapp_ingest(payload: WhatsAppMessage):
+    """Accept an inbound WhatsApp message and generate a structured breakdown."""
+
+    parsed = whatsapp_service.receive_task_message(
+        payload.message, metadata={"squad": payload.squad}
+    )
+    return {
+        "ok": True,
+        "from": payload.sender,
+        "language": parsed["language"],
+        "normalized": parsed["normalized"],
+        "breakdown": parsed["breakdown"],
+    }
+
+
+@router.post("/whatsapp/alert")
+def whatsapp_alert(payload: WhatsAppAlert):
+    """Send a WhatsApp alert or approval request to a recipient."""
+
+    result = whatsapp_service.send_alert(payload.to, payload.text)
+    return {"ok": result.get("sent", False), "result": result}
