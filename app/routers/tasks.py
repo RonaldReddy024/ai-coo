@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..ai_logic import run_ai_coo_logic
 from ..database import SessionLocal, get_db
+from ..deps import get_current_user_email
 from ..models import AiTaskLog, Task
 from ..schemas import TaskCreate, TaskUpdate
 
@@ -94,6 +95,7 @@ def serialize_task(task: Task) -> dict:
         "status": task.status,
         "company_id": task.company_id,
         "squad": task.squad,
+        "owner_email": task.owner_email,
         "metadata_json": task.metadata_json or {},
         "result_text": task.result_text,
         "external_provider_status": getattr(task, "external_provider_status", None),
@@ -108,12 +110,17 @@ def list_tasks(
     squad: str | None = None,
     company_id: int | None = None,
     db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
 ):
     """
     List recent tasks for the dashboard.
     Supports optional filters: status, squad, company_id.
     """
-    query = db.query(Task).order_by(Task.created_at.desc())
+    query = (
+        db.query(Task)
+        .filter(Task.owner_email == user_email)
+        .order_by(Task.created_at.desc())
+    )
 
     if status:
         query = query.filter(Task.status == status)
@@ -129,7 +136,11 @@ def list_tasks(
 
 
 @router.post("")
-async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
+async def create_task(
+    task: TaskCreate,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
     """
     Create a new task in the local database.
     """
@@ -140,6 +151,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
             metadata_json=task.metadata or {},
             company_id=task.company_id,
             squad=task.squad,
+            owner_email=user_email,
         )
         db.add(db_task)
         db.commit()
@@ -186,6 +198,7 @@ def run_task_async(
     payload: TaskCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
 ):
 
     # 1. Create the task in "pending" state
@@ -196,6 +209,7 @@ def run_task_async(
         metadata_json=payload.metadata or {},
         company_id=getattr(payload, "company_id", None),
         squad=getattr(payload, "squad", None),
+        owner_email=user_email,
     )
     db.add(task)
     db.commit()
@@ -217,6 +231,7 @@ def run_task_async(
             "created_at": task.created_at.isoformat(),
             "company_id": getattr(task, "company_id", None),
             "squad": getattr(task, "squad", None),
+            "owner_email": getattr(task, "owner_email", None),
             "external_provider_status": getattr(task, "external_provider_status", None),
         },
     }
@@ -226,6 +241,7 @@ def run_task_async(
 def run_task(
     payload: TaskCreate,
     db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
 ):
     # 1. Create the task in "pending" state
     task = Task(
@@ -235,6 +251,7 @@ def run_task(
         metadata_json=payload.metadata or {},
         company_id=payload.company_id,
         squad=payload.squad,
+        owner_email=user_email,
     )
     db.add(task)
     db.commit()
@@ -402,6 +419,7 @@ def run_task_debug(
             "squad": task.squad,
             "metadata_json": task.metadata_json,
             "result_text": task.result_text,
+            "owner_email": getattr(task, "owner_email", None),
             "external_provider_status": getattr(task, "external_provider_status", None),
             "created_at": task.created_at.isoformat(),
         },
