@@ -61,6 +61,7 @@ async def send_magic_link(request: Request, email: str = Form(...)):
 @router.get("/auth/callback", response_class=HTMLResponse)
 async def auth_callback(
     request: Request,
+    email: Optional[str] = Query(None),
     token_hash: Optional[str] = Query(None),
     token: Optional[str] = Query(None),
     type: str = Query("email"),
@@ -84,9 +85,21 @@ async def auth_callback(
             detail="Supabase authentication is not configured on this server.",
         )
 
+    if not email:
+        return templates.TemplateResponse(
+            "magic_error.html",
+            {
+                "request": request,
+                "error_message": (
+                    "This login link is missing the user email. Please request a new one."
+                ),
+            },
+        )
+
     try:
         verify_res = supabase.auth.verify_otp(
             {
+                "email": email,
                 "token_hash": raw_token,
                 "type": type,
             }
@@ -140,6 +153,12 @@ async def auth_callback(
     response.set_cookie(
         key="sb-access-token",
         value=access_token,
+        httponly=True,
+        samesite="lax",
+    )
+    response.set_cookie(
+        key="wy_email",
+        value=email,
         httponly=True,
         samesite="lax",
     )
