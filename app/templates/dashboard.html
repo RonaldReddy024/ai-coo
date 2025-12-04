@@ -181,6 +181,52 @@
       margin-right: 4px;
       background: #4ade80;
     }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) {
+      .grid-two {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: #0b1220;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .card h3 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+    }
+
+    .muted {
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    .pill-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 11px;
+    }
+
+    .selected-row {
+      background: #0b1220;
+    }
   </style>
 </head>
 <body>
@@ -246,26 +292,53 @@
     </button>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 60px;">ID</th>
-        <th>Title / Metadata</th>
-        <th style="width: 180px;">Company / Squad</th>
-        <th style="width: 120px;">Status</th>
-        <th style="width: 140px;">Provider</th>
-        <th style="width: 190px;">Created</th>
-      </tr>
-    </thead>
-    <tbody id="tasksBody">
-      <!-- Filled by JS -->
-    </tbody>
-  </table>
+  <div class="grid-two">
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 60px;">ID</th>
+            <th>Title / Metadata</th>
+            <th style="width: 180px;">Company / Squad</th>
+            <th style="width: 120px;">Status</th>
+            <th style="width: 140px;">Provider</th>
+            <th style="width: 190px;">Created</th>
+          </tr>
+        </thead>
+        <tbody id="tasksBody">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" id="taskDetailCard">
+      <h3 id="detailTitle">Select a task</h3>
+      <p class="muted" id="detailStatus">Click a task on the left to see next steps and dependencies.</p>
+
+      <div id="detailMeta" class="muted" style="margin-bottom: 10px;"></div>
+
+      <div style="margin-bottom: 12px;">
+        <div class="pill-info" id="detailNextStepsLabel">Next steps</div>
+        <pre id="detailNextSteps" style="white-space: pre-wrap; background:#020617; padding:10px; border-radius:10px; border:1px solid #1f2937; color:#e5e7eb;">No task selected.</pre>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div class="pill-info">Tasks that should be completed first</div>
+        <ul id="detailDepends" class="muted"></ul>
+      </div>
+
+      <div>
+        <div class="pill-info">Tasks that cannot be completed until this is done</div>
+        <ul id="detailBlocks" class="muted"></ul>
+      </div>
+    </div>
+  </div>
 
   <script>
 let allTasks = [];
 let showFallbackOnly = false;
-
+let selectedTaskId = null;
+    
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -356,7 +429,13 @@ function renderTasks(tasks) {
 
   for (const task of tasks) {
     const row = document.createElement("tr");
-
+    row.dataset.taskId = task.id;
+    row.addEventListener("click", () => {
+      selectedTaskId = task.id;
+      highlightSelectedRow();
+      loadTaskSummary(task.id);
+    });
+    
     const created = task.created_at
       ? new Date(task.created_at).toLocaleString()
       : "";
@@ -421,6 +500,96 @@ function renderTasks(tasks) {
     `;
 
     tbody.appendChild(row);
+  }
+
+  if (selectedTaskId && tasks.some((t) => t.id === selectedTaskId)) {
+    highlightSelectedRow();
+  } else if (tasks.length > 0) {
+    selectedTaskId = tasks[0].id;
+    highlightSelectedRow();
+    loadTaskSummary(selectedTaskId);
+  }
+}
+
+function highlightSelectedRow() {
+  const rows = document.querySelectorAll("#tasksBody tr");
+  rows.forEach((row) => {
+    if (Number(row.dataset.taskId) === Number(selectedTaskId)) {
+      row.classList.add("selected-row");
+    } else {
+      row.classList.remove("selected-row");
+    }
+  });
+}
+
+async function loadTaskSummary(taskId) {
+  try {
+    const res = await fetch(`/tasks/${taskId}/summary`);
+    if (!res.ok) {
+      throw new Error(`Failed to load summary (HTTP ${res.status})`);
+    }
+    const data = await res.json();
+    renderTaskSummary(data);
+  } catch (err) {
+    const detailTitle = document.getElementById("detailTitle");
+    const detailStatus = document.getElementById("detailStatus");
+    if (detailTitle) detailTitle.textContent = "Unable to load task";
+    if (detailStatus) detailStatus.textContent = err.message;
+  }
+}
+
+function renderTaskSummary(summary) {
+  const { task, next_steps, depends_on, blocks } = summary;
+  const titleEl = document.getElementById("detailTitle");
+  const statusEl = document.getElementById("detailStatus");
+  const nextEl = document.getElementById("detailNextSteps");
+  const metaEl = document.getElementById("detailMeta");
+  const dependsEl = document.getElementById("detailDepends");
+  const blocksEl = document.getElementById("detailBlocks");
+
+  if (titleEl) titleEl.textContent = `#${task.id} · ${task.title}`;
+  if (statusEl)
+    statusEl.textContent = `Status: ${task.status.toUpperCase()} · Provider: ${
+      task.external_provider_status || "ok"
+    }`;
+  if (nextEl) nextEl.textContent = next_steps || "No next steps defined yet.";
+
+  if (metaEl) {
+    const metaParts = [];
+    if (task.company_id) metaParts.push(`Company ${task.company_id}`);
+    if (task.squad) metaParts.push(`Squad ${task.squad}`);
+    const md = task.metadata_json || {};
+    const metaKeys = Object.keys(md);
+    for (const key of metaKeys.slice(0, 3)) {
+      metaParts.push(`${key}: ${md[key]}`);
+    }
+    metaEl.textContent = metaParts.length ? metaParts.join(" · ") : "No metadata";
+  }
+
+  if (dependsEl) {
+    dependsEl.innerHTML = "";
+    if (!depends_on || depends_on.length === 0) {
+      dependsEl.innerHTML = "<li>No prerequisites detected.</li>";
+    } else {
+      for (const t of depends_on) {
+        const li = document.createElement("li");
+        li.textContent = `#${t.id} – ${t.title} [${t.status}]`;
+        dependsEl.appendChild(li);
+      }
+    }
+  }
+
+  if (blocksEl) {
+    blocksEl.innerHTML = "";
+    if (!blocks || blocks.length === 0) {
+      blocksEl.innerHTML = "<li>No downstream blockers.</li>";
+    } else {
+      for (const t of blocks) {
+        const li = document.createElement("li");
+        li.textContent = `#${t.id} – ${t.title} [${t.status}]`;
+        blocksEl.appendChild(li);
+      }
+    }
   }
 }
 
