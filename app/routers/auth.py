@@ -103,9 +103,29 @@ async def auth_callback(
             },
         )
 
+    verify_error = getattr(verify_res, "error", None)
+    if verify_error:
+        logger.warning(
+            "Magic link verification returned error for token %s: %s",
+            raw_token,
+            getattr(verify_error, "message", verify_error),
+        )
+        return templates.TemplateResponse(
+            "magic_error.html",
+            {
+                "request": request,
+                "error_message": (
+                    "This login link is invalid or has expired."
+                ),
+            },
+        )
+
     session = getattr(verify_res, "session", None)
-    if not session:
-        logger.warning("Magic link verification returned no session")
+    access_token = getattr(session, "access_token", None) if session else None
+    if not session or not access_token:
+        logger.warning(
+            "Magic link verification returned no session or missing access token",
+        )
         return templates.TemplateResponse(
             "magic_error.html",
             {
@@ -119,7 +139,7 @@ async def auth_callback(
     response = RedirectResponse(url="/dashboard")
     response.set_cookie(
         key="sb-access-token",
-        value=session.access_token,
+        value=access_token,
         httponly=True,
         samesite="lax",
     )
