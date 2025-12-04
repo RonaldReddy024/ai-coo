@@ -165,6 +165,11 @@
       <p class="sub">
         Live view of tasks your AI COO is processing in rupees (₹).
       </p>
+      {% if user_email %}
+      <p class="sub">
+        Signed in as {{ user_email }}
+      </p>
+      {% endif %}
     </div>
     <div>
       <span class="pill">
