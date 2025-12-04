@@ -124,6 +124,20 @@ async def dashboard(
     )
 
 
+@app.get("/tasks/new", response_class=HTMLResponse)
+def new_task_page(
+    request: Request,
+    user_email: str = Depends(get_current_user_email),
+):
+    return templates.TemplateResponse(
+        "new_task.html",
+        {
+            "request": request,
+            "user_email": user_email,
+        },
+    )
+
+
 @app.get("/tasks/{task_id}/view", response_class=HTMLResponse)
 def task_detail_page(
     task_id: int,
