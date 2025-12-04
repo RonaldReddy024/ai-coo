@@ -2,7 +2,7 @@ import logging
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from .config import settings
 
@@ -74,4 +74,9 @@ def ensure_sqlite_schema(engine):
                 text(
                     "ALTER TABLE tasks ADD COLUMN external_provider_status VARCHAR DEFAULT 'ok';"
                 )
+            )
+
+        if "owner_email" not in columns:
+            conn.execute(
+                text("ALTER TABLE tasks ADD COLUMN owner_email VARCHAR;"),
             )
