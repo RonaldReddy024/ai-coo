@@ -1,14 +1,14 @@
-import logging
-import urllib.parse
-from typing import Optional
-
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+import logging
+import os
+import urllib.parse
+from typing import Optional
 
 from ..supabase_client import SUPABASE_AVAILABLE, supabase
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
