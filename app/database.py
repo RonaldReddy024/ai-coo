@@ -46,6 +46,19 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+# One-time safe migration to add next_steps column if it doesn't exist
+def ensure_next_steps_column():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN next_steps TEXT"))
+        except Exception:
+            # If the column already exists or table doesn't exist yet, ignore
+            pass
+
+
+ensure_next_steps_column()
+
+
 def get_db():
     db = SessionLocal()
     try:
