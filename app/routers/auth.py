@@ -1,3 +1,4 @@
+import logging
 import urllib.parse
 from typing import Optional
 
@@ -11,7 +12,7 @@ BASE_URL = "http://127.0.0.1:8000"
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-
+logger = logging.getLogger(__name__)
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
@@ -32,20 +33,24 @@ async def send_magic_link(request: Request, email: str = Form(...)):
     redirect_url = f"{BASE_URL}/magic-login?email=" + urllib.parse.quote(email)
 
 
-    res = supabase.auth.sign_in_with_otp(
-        {
-            "email": email,
-            "options": {
-                "email_redirect_to": redirect_url,
-                "should_create_user": True,
-            },
-        }
-    )
-
-    if getattr(res, "error", None):
-        msg = f"Error sending magic link: {res.error.message}"
+    try:
+        res = supabase.auth.sign_in_with_otp(
+            {
+                "email": email,
+                "options": {
+                    "email_redirect_to": redirect_url,
+                    "should_create_user": True,
+                },
+            }
+        )
+    except Exception:
+        logger.exception("Magic link send failed for email %s", email)
+        msg = "There was a problem sending your magic link. Please try again."
     else:
-        msg = "Magic link sent! Check your inbox."
+        if getattr(res, "error", None):
+            msg = f"Error sending magic link: {res.error.message}"
+        else:
+            msg = "Magic link sent! Check your inbox."
 
     return templates.TemplateResponse(
         "login.html",
@@ -79,15 +84,28 @@ async def auth_callback(
             detail="Supabase authentication is not configured on this server.",
         )
 
-    verify_res = supabase.auth.verify_otp(
-        {
-            "token_hash": raw_token,
-            "type": type,
-        }
-    )
+    try:
+        verify_res = supabase.auth.verify_otp(
+            {
+                "token_hash": raw_token,
+                "type": type,
+            }
+        )
+    except Exception:
+        logger.exception("Magic link verification failed for token %s", raw_token)
+        return templates.TemplateResponse(
+            "magic_error.html",
+            {
+                "request": request,
+                "error_message": (
+                    "This login link is invalid or has expired."
+                ),
+            },
+        )
 
     session = getattr(verify_res, "session", None)
     if not session:
+        logger.warning("Magic link verification returned no session")
         return templates.TemplateResponse(
             "magic_error.html",
             {
