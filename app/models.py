@@ -90,6 +90,9 @@ class Task(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     squad = Column(String, nullable=True)  # e.g. "growth", "platform", "success"
 
+    # Who owns this task (identified by email)
+    owner_email = Column(String, index=True, nullable=True)
+
     # Optional relationship back to Company (if Company model exists)
     company = relationship("Company", backref="tasks", lazy="joined")
 
