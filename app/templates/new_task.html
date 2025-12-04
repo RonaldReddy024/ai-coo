@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>New Task – WorkYodha</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .shell {
+      width: 100%;
+      max-width: 960px;
+      background: #020617;
+    }
+    .page-title {
+      font-size: 1.4rem;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: #0b1120;
+      border-radius: 18px;
+      padding: 20px 20px 22px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.6);
+      margin-bottom: 18px;
+    }
+
+    /* AI description "search bar" */
+    .ai-input-label {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+    .ai-input-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #020617;
+      border-radius: 999px;
+      padding: 6px 10px;
+      border: 1px solid rgba(148,163,184,0.5);
+    }
+    .ai-input-container input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: #e5e7eb;
+      font-size: 0.92rem;
+    }
+    .ai-input-container button {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #022c22;
+      box-shadow: 0 8px 20px rgba(22,163,74,0.5);
+    }
+
+    /* Info summary boxes under the search bar */
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .summary-box {
+      background: #020617;
+      border-radius: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(55, 65, 81, 0.8);
+      font-size: 0.8rem;
+    }
+    .summary-label {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    .summary-value {
+      font-size: 0.85rem;
+      color: #e5e7eb;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Structured form */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-field label {
+      font-size: 0.82rem;
+      color: #9ca3af;
+    }
+    .form-field input,
+    .form-field textarea {
+      border-radius: 10px;
+      border: 1px solid rgba(75,85,99,0.9);
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .form-field textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .actions-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .btn-secondary {
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      border: 1px solid rgba(148,163,184,0.6);
+      background: transparent;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+    .btn-primary {
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #022c22;
+      box-shadow: 0 10px 25px rgba(22, 163, 74, 0.5);
+    }
+
+    @media (max-width: 720px) {
+      .summary-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1 class="page-title">Create a new task</h1>
+    <p class="subtitle">
+      Describe what you want the AI-COO to handle, and we’ll auto-suggest a title, squad, and metadata.
+    </p>
+
+    <!-- AI description block -->
+    <div class="card">
+      <div class="ai-input-label">Describe the task (AI will analyze and categorize it)</div>
+      <div class="ai-input-container">
+        <input
+          id="taskDescription"
+          type="text"
+          placeholder="e.g. “Prepare weekly INR revenue summary for leadership and flag anomalies.”"
+        />
+        <button type="button" id="analyzeBtn">Analyze</button>
+      </div>
+
+      <!-- Four summary boxes -->
+      <div class="summary-row">
+        <div class="summary-box">
+          <div class="summary-label">Company / Squad</div>
+          <div id="summaryCompanySquad" class="summary-value">Not set</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Status</div>
+          <div id="summaryStatus" class="summary-value">Draft</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Provider</div>
+          <div id="summaryProvider" class="summary-value">AI-COO + INR fallback</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Created</div>
+          <div id="summaryCreated" class="summary-value">Not created yet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Structured form -->
+    <form id="newTaskForm" class="card">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="titleInput">Title</label>
+          <input id="titleInput" type="text" placeholder="Automatically filled from description if left blank" />
+        </div>
+        <div class="form-field">
+          <label for="squadInput">Squad</label>
+          <input id="squadInput" type="text" placeholder="e.g. finance, growth, product" />
+        </div>
+        <div class="form-field">
+          <label for="companyIdInput">Company ID</label>
+          <input id="companyIdInput" type="number" value="1" />
+        </div>
+        <div class="form-field">
+          <label for="statusInput">Status</label>
+          <input id="statusInput" type="text" value="pending" />
+        </div>
+      </div>
+
+      <div class="form-field" style="margin-top: 12px;">
+        <label for="metadataInput">Metadata (optional JSON)</label>
+        <textarea
+          id="metadataInput"
+          placeholder='{
+  "week": "2025-12-15",
+  "currency": "INR"
+}'
+        ></textarea>
+      </div>
+
+      <div class="actions-row">
+        <button type="button" class="btn-secondary" onclick="window.location.href='/dashboard'">
+          Cancel
+        </button>
+        <button type="submit" class="btn-primary">
+          Create task
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // Very simple "AI-like" analysis on the frontend (no external calls)
+    const descInput = document.getElementById("taskDescription");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+
+    const summaryCompanySquad = document.getElementById("summaryCompanySquad");
+    const summaryStatus = document.getElementById("summaryStatus");
+    const summaryProvider = document.getElementById("summaryProvider");
+    const summaryCreated = document.getElementById("summaryCreated");
+
+    const titleInput = document.getElementById("titleInput");
+    const squadInput = document.getElementById("squadInput");
+    const companyIdInput = document.getElementById("companyIdInput");
+    const statusInput = document.getElementById("statusInput");
+    const metadataInput = document.getElementById("metadataInput");
+
+    function simpleCategorize(description) {
+      const d = description.toLowerCase();
+
+      let squad = "general";
+      if (d.includes("revenue") || d.includes("kpi") || d.includes("finance")) {
+        squad = "finance";
+      } else if (d.includes("bug") || d.includes("deploy") || d.includes("api")) {
+        squad = "engineering";
+      } else if (d.includes("growth") || d.includes("marketing")) {
+        squad = "growth";
+      }
+
+      let title = description.trim();
+      if (title.length > 70) {
+        title = title.slice(0, 67) + "...";
+      }
+      if (!title) {
+        title = "New AI-COO task";
+      }
+
+      return { squad, title };
+    }
+
+    analyzeBtn.addEventListener("click", () => {
+      const text = descInput.value || "";
+      const { squad, title } = simpleCategorize(text);
+
+      if (!titleInput.value) {
+        titleInput.value = title;
+      }
+      if (!squadInput.value) {
+        squadInput.value = squad;
+      }
+
+      const companyId = companyIdInput.value || "1";
+
+      summaryCompanySquad.textContent = `Company ${companyId} · ${squad}`;
+      summaryStatus.textContent = statusInput.value || "pending";
+      summaryProvider.textContent = "AI-COO + INR fallback";
+      summaryCreated.textContent = "Will be set on creation";
+    });
+
+    // Create task by calling your existing /tasks/run_async endpoint
+    const form = document.getElementById("newTaskForm");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const description = descInput.value || "";
+      const { squad: suggestedSquad, title: suggestedTitle } = simpleCategorize(description);
+
+      const title = titleInput.value || suggestedTitle;
+      const squad = squadInput.value || suggestedSquad;
+      const companyId = parseInt(companyIdInput.value || "1", 10) || 1;
+      const status = statusInput.value || "pending";
+
+      let metadata = {
+        description,
+        status_hint: status,
+        created_via: "new_task_ui",
+        provider_hint: "AI-COO + INR fallback"
+      };
+
+      const rawMeta = metadataInput.value.trim();
+      if (rawMeta) {
+        try {
+          const parsed = JSON.parse(rawMeta);
+          metadata = { ...metadata, ...parsed };
+        } catch (e) {
+          metadata.raw = rawMeta;
+        }
+      }
+
+      try {
+        const resp = await fetch("/tasks/run_async", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title: title,
+            company_id: companyId,
+            squad: squad,
+            metadata: metadata
+          })
+        });
+
+        const data = await resp.json();
+        // Update "Created" summary quickly
+        const now = new Date();
+        summaryCreated.textContent = now.toISOString().slice(0, 19).replace("T", " ");
+        // Redirect to dashboard after creation
+        window.location.href = "/dashboard";
+      } catch (err) {
+        alert("Failed to create task. Check console for details.");
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
