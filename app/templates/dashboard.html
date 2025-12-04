@@ -82,6 +82,31 @@
       font-size: 0.95rem;
     }
 
+    .dashboard-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .new-task-btn {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #022c22;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      box-shadow: 0 10px 25px rgba(22, 163, 74, 0.5);
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+
+    .new-task-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(22, 163, 74, 0.7);
+    }
+
     .summary-strip span {
       white-space: nowrap;
     }
@@ -159,9 +184,13 @@
   </style>
 </head>
 <body>
+  <div class="dashboard-header">
+    <h1>WorkYodha – Sprint Risks</h1>
+    <a href="/tasks/new" class="new-task-btn">+ New Task</a>
+  </div>
+
   <div class="layout-top">
     <div>
-      <h1>WorkYodha AI COO – Sprint Risks</h1>
       <p class="sub">
         Live view of tasks your AI COO is processing in rupees (₹).
       </p>
