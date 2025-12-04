@@ -1,9 +1,28 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    Text,
+    Boolean,
+    Float,
+    JSON,
+    Table,
+)
 from sqlalchemy.orm import relationship
 
 from .database import Base
+
+
+task_dependencies = Table(
+    "task_dependencies",
+    Base.metadata,
+    Column("blocker_id", Integer, ForeignKey("tasks.id"), primary_key=True),
+    Column("blocked_id", Integer, ForeignKey("tasks.id"), primary_key=True),
+)
 
 
 class Company(Base):
@@ -82,7 +101,8 @@ class Task(Base):
     result_text = Column(Text, nullable=True)
     metadata_json = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+    next_steps = Column(Text, nullable=True)
+    
     # Track whether the external provider succeeded or we fell back locally
     external_provider_status = Column(String, nullable=True, default="ok")
 
@@ -95,6 +115,14 @@ class Task(Base):
 
     # Optional relationship back to Company (if Company model exists)
     company = relationship("Company", backref="tasks", lazy="joined")
+
+    depends_on = relationship(
+        "Task",
+        secondary=task_dependencies,
+        primaryjoin=id == task_dependencies.c.blocked_id,
+        secondaryjoin=id == task_dependencies.c.blocker_id,
+        backref="blocks",
+    )
 
 
 class AiTaskLog(Base):
