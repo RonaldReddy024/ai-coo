@@ -137,5 +137,16 @@ class Task(TaskBase):
     company_id: Optional[int] = None
     squad: Optional[str] = None
     external_provider_status: Optional[str] = None
+    next_steps: Optional[str] = None
+    metadata_json: Optional[Dict[str, Any]] = None
 
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaskSummary(BaseModel):
+    task: Task
+    next_steps: str
+    depends_on: List[Task]
+    blocks: List[Task]
+    
     model_config = ConfigDict(from_attributes=True)
