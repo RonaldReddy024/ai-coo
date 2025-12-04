@@ -44,7 +44,6 @@ app.include_router(integrations.router, prefix="/integrations", tags=["integrati
 app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
 app.include_router(companies.router)
 app.include_router(auth.router, tags=["auth"])
-app.include_router(tasks.router)
 
 
 def _parse_section_block(text: str, header: str) -> list[str]:
@@ -211,6 +210,11 @@ def task_detail_page(
         "blocking_upstream": blocking_upstream,
     }
     return templates.TemplateResponse("task_detail.html", context)
+
+
+# Register the task API routes *after* the HTML pages so /tasks/new resolves
+# to the template instead of being captured by /tasks/{task_id}.
+app.include_router(tasks.router)
 
 
 # Optional: simple health endpoint
