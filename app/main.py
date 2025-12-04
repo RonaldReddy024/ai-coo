@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from . import models  # register models
+from .deps import get_current_user_email
 from .database import Base, engine, ensure_sqlite_schema, get_db
 from .models import Task
 from .routers import auth, companies, integrations, sprints, tasks
@@ -75,12 +76,17 @@ def list_tasks(
     squad: Optional[str] = None,
     company_id: Optional[int] = None,
     db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
 ):
     """
     List recent tasks for the dashboard.
     Supports optional filters: status, squad, company_id.
     """
-    query = db.query(models.Task).order_by(models.Task.created_at.desc())
+    query = (
+        db.query(models.Task)
+        .filter(models.Task.owner_email == user_email)
+        .order_by(models.Task.created_at.desc())
+    )
 
     if status:
         query = query.filter(models.Task.status == status)
@@ -99,9 +105,11 @@ def list_tasks(
 async def dashboard(
     request: Request,
     db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
 ):
     tasks = (
         db.query(Task)
+        .filter(Task.owner_email == user_email)
         .order_by(Task.created_at.desc())
         .limit(100)
         .all()
@@ -111,6 +119,7 @@ async def dashboard(
         {
             "request": request,
             "tasks": tasks,
+            "user_email": user_email,
         },
     )
 
