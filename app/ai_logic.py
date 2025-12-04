@@ -1,11 +1,116 @@
 import logging
 import os
-from typing import Any, Dict
+import re
+from typing import Any, Dict, List, Tuple
 
 from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 logger = logging.getLogger(__name__)
+
+
+def analyze_task_relationships(
+    new_task, existing_tasks: List[Any]
+) -> Tuple[str, List[int], List[int]]:
+    """
+    Infer next steps and dependency relationships for a task.
+
+    Returns
+    -------
+    next_steps_text: str
+        Human-readable next steps for the task.
+    depends_on_ids: list[int]
+        Task IDs that should be completed before this task.
+    blocks_ids: list[int]
+        Task IDs that are blocked by this task.
+    """
+
+    title = (getattr(new_task, "title", "") or "").lower()
+    desc = (getattr(new_task, "description", "") or "").lower()
+    text = f"{title} {desc}"
+
+    is_design = bool(re.search(r"\b(spec|design|discovery|requirements|prd)\b", text))
+    is_build = bool(re.search(r"\b(implement|build|develop|code|integration)\b", text))
+    is_test = bool(re.search(r"\b(test|qa|validation|bug|issue)\b", text))
+    is_launch = bool(re.search(r"\b(release|deploy|launch|rollout|go live)\b", text))
+
+    next_steps_lines: list[str] = []
+
+    if is_design:
+        next_steps_lines.append(
+            "- Schedule a design/requirements review with the relevant squad (e.g., product + engineering)."
+        )
+        next_steps_lines.append("- Confirm acceptance criteria before implementation tasks are started.")
+    if is_build:
+        next_steps_lines.append(
+            "- Ensure any design/PRD tasks are completed and approved before starting implementation."
+        )
+        next_steps_lines.append("- Break this into smaller implementation subtasks if it’s too broad.")
+    if is_test:
+        next_steps_lines.append(
+            "- Confirm that implementation tasks related to this feature are completed and merged."
+        )
+        next_steps_lines.append(
+            "- Coordinate with QA/owners to define test cases and success criteria."
+        )
+    if is_launch:
+        next_steps_lines.append("- Verify that testing tasks are completed and results are signed off.")
+        next_steps_lines.append(
+            "- Align with stakeholders on rollout plan, communication, and monitoring."
+        )
+
+    if not next_steps_lines:
+        next_steps_lines.append("- Clarify owner, deadline, and success criteria for this task.")
+
+    depends_on_ids: list[int] = []
+    blocks_ids: list[int] = []
+
+    for task in existing_tasks:
+        if getattr(task, "id", None) == getattr(new_task, "id", None):
+            continue
+
+        t_text = f"{(getattr(task, 'title', '') or '').lower()} {(getattr(task, 'description', '') or '').lower()}"
+
+        same_squad = False
+        same_company = False
+
+        if "frontend" in text and "frontend" in t_text:
+            same_squad = True
+        if "finance" in text and "finance" in t_text:
+            same_squad = True
+        if "bigbasket" in text and "bigbasket" in t_text:
+            same_company = True
+        if "browserstack" in text and "browserstack" in t_text:
+            same_company = True
+
+        if not (same_squad or same_company):
+            continue
+
+        t_is_design = any(k in t_text for k in ["spec", "design", "prd"])
+        t_is_build = any(k in t_text for k in ["implement", "build", "develop"])
+        t_is_test = any(k in t_text for k in ["test", "qa", "bug", "issue"])
+        t_is_launch = any(k in t_text for k in ["release", "deploy", "launch"])
+
+        if is_build and t_is_design:
+            depends_on_ids.append(task.id)
+
+        if is_test and t_is_build:
+            depends_on_ids.append(task.id)
+
+        if is_launch and t_is_test:
+            depends_on_ids.append(task.id)
+
+        if is_design and t_is_build:
+            blocks_ids.append(task.id)
+
+        if is_build and t_is_test:
+            blocks_ids.append(task.id)
+
+        if is_test and t_is_launch:
+            blocks_ids.append(task.id)
+
+    next_steps_text = "\n".join(next_steps_lines)
+    return next_steps_text, list(set(depends_on_ids)), list(set(blocks_ids))
 
 
 def build_local_fallback_plan(
