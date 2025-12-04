@@ -208,6 +208,7 @@ def task_detail_page(
         "upstream_tasks": upstream_tasks,
         "downstream_tasks": downstream_tasks,
         "blocking_upstream": blocking_upstream,
+        "next_steps": task.next_steps or "",
     }
     return templates.TemplateResponse("task_detail.html", context)
 
