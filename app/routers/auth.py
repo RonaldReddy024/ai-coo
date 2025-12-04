@@ -1,3 +1,4 @@
+import urllib.parse
 from typing import Optional
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request
@@ -28,7 +29,8 @@ async def send_magic_link(request: Request, email: str = Form(...)):
             detail="Supabase authentication is not configured on this server.",
         )
 
-    redirect_url = f"{BASE_URL}/magic-login"
+    redirect_url = f"{BASE_URL}/magic-login?email=" + urllib.parse.quote(email)
+
 
     res = supabase.auth.sign_in_with_otp(
         {
@@ -109,11 +111,29 @@ async def auth_callback(
 @router.get("/magic-login")
 async def magic_login(
     request: Request,
-    token_hash: Optional[str] = Query(None),
-    token: Optional[str] = Query(None),
+    email: Optional[str] = Query(None),
 ):
     """
     DEV MODE:
-    Any magic link -> treat as logged in and send user to dashboard.
+    - Takes ?email= from the magic link redirect
+    - Sets a cookie so we know who is "logged in"
+    - Sends them to the dashboard
     """
-    return RedirectResponse(url="/dashboard", status_code=302)
+
+    if not email:
+        return templates.TemplateResponse(
+            "magic_error.html",
+            {
+                "request": request,
+                "error_message": "This login link is missing an email parameter.",
+            },
+        )
+
+    response = RedirectResponse(url="/dashboard", status_code=302)
+    response.set_cookie(
+        "wy_email",
+        email,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
