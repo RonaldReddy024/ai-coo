@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..ai_logic import run_ai_coo_logic
+from ..ai_logic import analyze_task_relationships, run_ai_coo_logic
 from ..database import SessionLocal, get_db
 from ..deps import get_current_user_email
 from ..models import AiTaskLog, Task
@@ -100,7 +100,31 @@ def serialize_task(task: Task) -> dict:
         "result_text": task.result_text,
         "external_provider_status": getattr(task, "external_provider_status", None),
         "created_at": task.created_at.isoformat() if task.created_at else None,
+        "next_steps": getattr(task, "next_steps", None),
     }
+
+
+def apply_relationships_and_next_steps(db: Session, task: Task):
+    all_tasks = db.query(Task).all()
+
+    next_steps, depends_on_ids, blocks_ids = analyze_task_relationships(task, all_tasks)
+
+    task.next_steps = next_steps
+
+    if depends_on_ids:
+        deps = db.query(Task).filter(Task.id.in_(depends_on_ids)).all()
+        for dep in deps:
+            if dep not in task.depends_on:
+                task.depends_on.append(dep)
+
+    if blocks_ids:
+        blocked = db.query(Task).filter(Task.id.in_(blocks_ids)).all()
+        for blk in blocked:
+            if blk not in task.blocks:
+                task.blocks.append(blk)
+
+    db.commit()
+    db.refresh(task)
 
 
 @router.get("/", name="list_tasks")
@@ -156,6 +180,7 @@ async def create_task(
         db.add(db_task)
         db.commit()
         db.refresh(db_task)
+        apply_relationships_and_next_steps(db, db_task)
         return {"ok": True, "task": serialize_task(db_task)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -215,6 +240,8 @@ def run_task_async(
     db.commit()
     db.refresh(task)
 
+    apply_relationships_and_next_steps(db, task)
+
     # TEMPORARILY disable event logging
     # log_task_event(...)
 
@@ -256,6 +283,8 @@ def run_task(
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    apply_relationships_and_next_steps(db, task)
 
     # Log creation
     log_task_event(
@@ -324,6 +353,20 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
     return {"ok": True, "task": serialize_task(task)}
 
 
+@router.get("/{task_id}/summary")
+def get_task_summary(task_id: int, db: Session = Depends(get_db)):
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return {
+        "task": serialize_task(task),
+        "next_steps": task.next_steps or "",
+        "depends_on": [serialize_task(t) for t in task.depends_on],
+        "blocks": [serialize_task(t) for t in task.blocks],
+    }
+
+
 @router.get("/{task_id}/status")
 def get_task_status(task_id: int, db: Session = Depends(get_db)):
     """
@@ -360,6 +403,8 @@ def run_task_debug(
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    apply_relationships_and_next_steps(db, task)
 
     # Log creation
     log_task_event(
