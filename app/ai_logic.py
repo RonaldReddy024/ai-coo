@@ -109,8 +109,28 @@ def analyze_task_relationships(
         if is_test and t_is_launch:
             blocks_ids.append(task.id)
 
-    next_steps_text = "\n".join(next_steps_lines)
-    return next_steps_text, list(set(depends_on_ids)), list(set(blocks_ids))
+    unique_depends = sorted(set(depends_on_ids))
+    unique_blocks = sorted(set(blocks_ids))
+
+    dependency_text = ""
+
+    if unique_depends:
+        dependency_text += (
+            "This task cannot be completed until the following tasks are finished:\n"
+        )
+        for dep_id in unique_depends:
+            dependency_text += f"- Task #{dep_id}\n"
+
+    if unique_blocks:
+        dependency_text += "\nThis task must be completed before the following tasks can proceed:\n"
+        for blk_id in unique_blocks:
+            dependency_text += f"- Task #{blk_id}\n"
+
+    if dependency_text == "":
+        dependency_text = "This task has no blocking or prerequisite tasks."
+
+    next_steps_text = dependency_text + "\n\n" + "\n".join(next_steps_lines)
+    return next_steps_text, unique_depends, unique_blocks
 
 
 def build_local_fallback_plan(
