@@ -10,6 +10,7 @@ from . import models  # register models
 from .actions import load_default_plugins
 from .deps import get_current_user_email
 from .database import Base, engine, ensure_sqlite_schema, get_db
+from .integrations import wehub
 from .models import Task
 from .routers import auth, companies, integrations, intelligence, sprints, tasks
 from .supabase_client import SUPABASE_AVAILABLE, supabase
@@ -48,6 +49,7 @@ app.include_router(sprints.router, prefix="/sprints", tags=["sprints"])
 app.include_router(companies.router)
 app.include_router(auth.router, tags=["auth"])
 app.include_router(intelligence.router)
+app.include_router(wehub.router)
 
 def _parse_section_block(text: str, header: str) -> list[str]:
     if not text:
