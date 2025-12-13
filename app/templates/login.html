@@ -53,6 +53,9 @@
     <p class="subtitle">Sign in with a magic link – no password needed.</p>
 
     <form method="post" action="/auth/magic-link">
+      {% if next_path %}
+        <input type="hidden" name="next" value="{{ next_path }}" />
+      {% endif %}
       <label for="email">Work email</label>
       <input id="email" type="email" name="email" required placeholder="you@company.com" />
       <button type="submit">Send magic link</button>
