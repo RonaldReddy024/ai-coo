@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
+# Quick sanity log to confirm env values are present when the app starts
+print("SUPABASE_URL:", SUPABASE_URL)
+print("SUPABASE_ANON_KEY present:", bool(SUPABASE_ANON_KEY))
+
 SUPABASE_AVAILABLE = bool(SUPABASE_URL and SUPABASE_ANON_KEY)
 
 if not SUPABASE_AVAILABLE:
@@ -35,4 +39,4 @@ if not SUPABASE_AVAILABLE:
     supabase: Client | None = None
 else:
     # --- Create Supabase client ---
-    supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
