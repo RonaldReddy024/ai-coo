@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 import logging
 import os
 from typing import Optional
+from urllib.parse import quote
 
 from pydantic import BaseModel
 
@@ -112,12 +113,18 @@ class TokensIn(BaseModel):
 async def login_page(request: Request):
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "message": None},
+        {
+            "request": request,
+            "message": None,
+            "next_path": request.query_params.get("next"),
+        },
     )
 
 
 @router.post("/auth/magic-link", response_class=HTMLResponse)
-def send_magic_link(request: Request, email: str = Form(...)):
+def send_magic_link(
+    request: Request, email: str = Form(...), next_path: Optional[str] = Form(None)
+):
     if not SUPABASE_AVAILABLE:
         raise HTTPException(
             status_code=503,
@@ -125,14 +132,19 @@ def send_magic_link(request: Request, email: str = Form(...)):
         )
 
     try:
-        print("SUPABASE_URL:", os.getenv("SUPABASE_URL"))
-        print("ANON starts eyJ:", (os.getenv("SUPABASE_ANON_KEY") or "").startswith("eyJ"))
-        print("ANON len:", len(os.getenv("SUPABASE_ANON_KEY") or ""))
+        raw_next = next_path or request.query_params.get("next")
+        next_path = raw_next if isinstance(raw_next, str) and raw_next.startswith("/") else None
+        next_path = next_path or "/dashboard"
+
+        site = SITE_URL.rstrip("/")
+        email_redirect = f"{site}/auth/callback?next={quote(next_path)}"
+
         supabase.auth.sign_in_with_otp(
             {
                 "email": email,
                 "options": {
-                    "email_redirect_to": SITE_URL + "/auth/callback",
+                    "email_redirect_to": email_redirect,
+                    "emailRedirectTo": email_redirect,
                 },
             }
         )
@@ -162,7 +174,8 @@ def auth_callback_page():
 
     const url = new URL(window.location.href);
     const code = url.searchParams.get("code");
-
+    const next = url.searchParams.get("next") || "/dashboard";
+    
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
     const hashParams = new URLSearchParams(hash);
     const access_token = hashParams.get("access_token");
@@ -189,8 +202,8 @@ def auth_callback_page():
       try {
         let payload = null;
 
-        if (code) payload = { code };
-        else if (access_token) payload = { access_token, refresh_token };
+        if (code) payload = { code, next };
+        else if (access_token) payload = { access_token, refresh_token, next };
         else {
           statusEl.textContent = "This login link is missing token data.";
           errEl.textContent = "Tip: Open the link in Chrome (not Gmail in-app browser).";
@@ -200,7 +213,7 @@ def auth_callback_page():
         statusEl.textContent = "Creating your session…";
         const out = await finalize(payload);
 
-        const target = out.redirect_to || "/dashboard";
+        const target = out.redirect_to || next || "/dashboard";
         statusEl.textContent = "Redirecting…";
         window.location.replace(target);
       } catch (e) {
@@ -250,16 +263,22 @@ def auth_finalize(payload: dict):
                 detail="Could not obtain access token from Supabase session.",
             )
 
-        user_resp = supabase.auth.get_user(access_token)
-        u = getattr(user_resp, "user", None) or user_resp.get("user")
-        meta = getattr(u, "user_metadata", None) or (
-            u.get("user_metadata") if isinstance(u, dict) else {}
-        ) or {}
+        raw_next = payload.get("next")
+        redirect_to = raw_next if isinstance(raw_next, str) and raw_next.startswith("/") else None
+        
+        if not redirect_to:
+            user_resp = supabase.auth.get_user(access_token)
+            u = getattr(user_resp, "user", None) or user_resp.get("user")
+            meta = getattr(u, "user_metadata", None) or (
+                u.get("user_metadata") if isinstance(u, dict) else {}
+            ) or {}
 
-        company_slug = meta.get("company_slug") or meta.get("company")
-        redirect_to = (
-            f"/company/{company_slug}/dashboard" if company_slug else "/dashboard"
-        )
+            company_slug = meta.get("company_slug") or meta.get("company")
+            redirect_to = (
+                f"/company/{company_slug}/dashboard" if company_slug else "/dashboard"
+            )
+
+        redirect_to = redirect_to if redirect_to.startswith("/") else "/dashboard"
 
         resp = JSONResponse({"ok": True, "redirect_to": redirect_to})
 
