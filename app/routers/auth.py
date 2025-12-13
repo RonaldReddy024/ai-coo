@@ -1,14 +1,13 @@
-from fastapi import APIRouter, Form, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import logging
 import os
-import urllib.parse
 from typing import Optional
 
 from ..supabase_client import SUPABASE_AVAILABLE, supabase
 
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:8000")
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -22,40 +21,28 @@ async def login_page(request: Request):
     )
 
 
-@router.post("/auth/magic-link", response_class=HTMLResponse)
-async def send_magic_link(request: Request, email: str = Form(...)):
+@router.post("/auth/magic-link")
+def send_magic_link(payload: dict):
     if not SUPABASE_AVAILABLE:
         raise HTTPException(
             status_code=503,
             detail="Supabase authentication is not configured on this server.",
         )
 
-    redirect_url = f"{BASE_URL}/magic-login?email=" + urllib.parse.quote(email)
-
-
+    email = payload.get("email")
     try:
-        res = supabase.auth.sign_in_with_otp(
+        supabase.auth.sign_in_with_otp(
             {
                 "email": email,
                 "options": {
-                    "email_redirect_to": redirect_url,
-                    "should_create_user": True,
+                    "email_redirect_to": SITE_URL + "/auth/callback",
                 },
             }
         )
-    except Exception:
-        logger.exception("Magic link send failed for email %s", email)
-        msg = "There was a problem sending your magic link. Please try again."
-    else:
-        if getattr(res, "error", None):
-            msg = f"Error sending magic link: {res.error.message}"
-        else:
-            msg = "Magic link sent! Check your inbox."
-
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request, "message": msg},
-    )
+        return {"ok": True, "message": "Magic link sent"}
+    except Exception as e:
+        logger.exception("Magic link send failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/auth/callback", response_class=HTMLResponse)
