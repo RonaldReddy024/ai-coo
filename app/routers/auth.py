@@ -2,15 +2,11 @@ from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import logging
-import os
 from typing import Optional
-from urllib.parse import quote
 
 from pydantic import BaseModel
 
 from ..supabase_client import SUPABASE_AVAILABLE, supabase
-
-SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:8000")
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -132,19 +128,11 @@ def send_magic_link(
         )
 
     try:
-        raw_next = next_path or request.query_params.get("next")
-        next_path = raw_next if isinstance(raw_next, str) and raw_next.startswith("/") else None
-        next_path = next_path or "/dashboard"
-
-        site = SITE_URL.rstrip("/")
-        email_redirect = f"{site}/auth/callback?next={quote(next_path)}"
-
         supabase.auth.sign_in_with_otp(
             {
                 "email": email,
                 "options": {
-                    "email_redirect_to": email_redirect,
-                    "emailRedirectTo": email_redirect,
+                    "email_redirect_to": "http://127.0.0.1:8000/dashboard",
                 },
             }
         )
