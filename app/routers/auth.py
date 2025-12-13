@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import logging
@@ -22,14 +22,13 @@ async def login_page(request: Request):
 
 
 @router.post("/auth/magic-link")
-def send_magic_link(payload: dict):
+def send_magic_link(email: str = Form(...)):
     if not SUPABASE_AVAILABLE:
         raise HTTPException(
             status_code=503,
             detail="Supabase authentication is not configured on this server.",
         )
 
-    email = payload.get("email")
     try:
         print("SUPABASE_URL:", os.getenv("SUPABASE_URL"))
         print("ANON starts eyJ:", (os.getenv("SUPABASE_ANON_KEY") or "").startswith("eyJ"))
