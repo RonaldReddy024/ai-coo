@@ -8,5 +8,6 @@ pydantic-settings
 apscheduler
 supabase-py
 python-dotenv
+python-multipart
 
 openai
