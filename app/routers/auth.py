@@ -146,123 +146,133 @@ def send_magic_link(request: Request, email: str = Form(...)):
 
 
 @router.get("/auth/callback", response_class=HTMLResponse)
-def auth_callback_page(
-    request: Request,
-    code: Optional[str] = Query(None),
-    access_token: Optional[str] = Query(None),
-    refresh_token: Optional[str] = Query(None),
-):
-    # If Supabase sent the PKCE code in the query params, exchange it server-side
-    if code and SUPABASE_AVAILABLE:
-        try:
-            exchange_result = supabase.auth.exchange_code_for_session(code)
-            session = _normalize_session_data(exchange_result)
-            if not session:
-                raise HTTPException(
-                    status_code=500, detail="No session returned from Supabase"
-                )
-
-            response = RedirectResponse(url="/dashboard", status_code=302)
-            _set_auth_cookies(response, session)
-            return response
-        except Exception as exc:
-            logger.exception("Magic link exchange failed")
-            return templates.TemplateResponse(
-                "magic_error.html",
-                {
-                    "request": request,
-                    "error_message": str(exc),
-                },
-                status_code=500,
-            )
-
-    # If we already have tokens in the URL, store them server-side and redirect
-    if access_token:
-        session = {"access_token": access_token, "refresh_token": refresh_token}
-        if SUPABASE_AVAILABLE:
-            try:
-                user_result = supabase.auth.get_user(access_token)
-                session["user"] = getattr(user_result, "user", None) or (
-                    user_result.get("user") if isinstance(user_result, dict) else None
-                )
-            except Exception:
-                logger.exception("Failed to fetch user during callback token store")
-
-        response = RedirectResponse(url="/dashboard", status_code=302)
-        _set_auth_cookies(response, session)
-        return response
-
-    # Fall back to legacy JS helper page for fragment-based redirects
+def auth_callback_page():
     return """
 <!doctype html>
 <html>
-  <head>
-    <meta charset=\"utf-8\">
-    <title>Logging in…</title>
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-  </head>
-  <body>
-    <h3>Logging you in…</h3>
-    <pre id=\"debug\" style=\"white-space:pre-wrap;\"></pre>
-    <script>
-      const debug = document.getElementById("debug");
+<head><meta charset="utf-8"><title>Logging in…</title></head>
+<body style="font-family: system-ui; padding: 24px;">
+  <h3>Logging you in…</h3>
+  <p id="status">Finalizing your session.</p>
+  <pre id="err" style="color:#b00020; white-space:pre-wrap;"></pre>
 
-      // Always try to send the user onward, even if the auth helpers fail.
-      const goToDashboard = () => {
-        if (!goToDashboard.called) {
-          goToDashboard.called = true;
-          window.location.replace("/dashboard");
-        }
-      };
-      setTimeout(goToDashboard, 2000);
+  <script>
+    const statusEl = document.getElementById("status");
+    const errEl = document.getElementById("err");
 
-      // Supabase may send either ?code=... or #access_token=...
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
 
-      const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
-      const hashParams = new URLSearchParams(hash);
-      const access_token = hashParams.get("access_token");
-      const refresh_token = hashParams.get("refresh_token");
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+    const hashParams = new URLSearchParams(hash);
+    const access_token = hashParams.get("access_token");
+    const refresh_token = hashParams.get("refresh_token");
 
-      debug.textContent =
-        "code=" + code + "\n" +
-        "access_token=" + (access_token ? access_token.slice(0,20)+"..." : null) + "\n" +
-        "refresh_token=" + (refresh_token ? refresh_token.slice(0,20)+"..." : null);
+    async function finalize(payload) {
+      const res = await fetch("/auth/finalize", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
 
-      // If we got a PKCE code, send it to backend to exchange for a session
-      if (code) {
-        fetch("/auth/exchange", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ code })
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (data.ok) goToDashboard();
-          else debug.textContent += "\n\nExchange failed: " + JSON.stringify(data);
-        })
-        .catch(err => debug.textContent += "\n\nExchange error: " + err);
-      } else if (access_token) {
-        // If tokens came in fragment, you can store a cookie/session server-side by POSTing them
-        fetch("/auth/store", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ access_token, refresh_token })
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (data.ok) goToDashboard();
-          else debug.textContent += "\n\nStore failed: " + JSON.stringify(data);
-        })
-        .catch(err => debug.textContent += "\n\nStore error: " + err);
-      } else {
-        debug.textContent += "\n\nNo token/code found in URL. Try opening the link in Chrome (not inside Gmail).";
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch(e) {}
+
+      if (!res.ok) {
+        throw new Error((data && (data.detail || data.message)) || text || ("HTTP " + res.status));
       }
-    </script>
-  </body>
+      return data;
+    }
+
+    (async () => {
+      try {
+        let payload = null;
+
+        if (code) payload = { code };
+        else if (access_token) payload = { access_token, refresh_token };
+        else {
+          statusEl.textContent = "This login link is missing token data.";
+          errEl.textContent = "Tip: Open the link in Chrome (not Gmail in-app browser).";
+          return;
+        }
+
+        statusEl.textContent = "Creating your session…";
+        const out = await finalize(payload);
+
+        const target = out.redirect_to || "/dashboard";
+        statusEl.textContent = "Redirecting…";
+        window.location.replace(target);
+      } catch (e) {
+        statusEl.textContent = "Login failed.";
+        errEl.textContent = e.message;
+        console.error(e);
+      }
+    })();
+  </script>
+</body>
 </html>
 """
+
+
+@router.post("/auth/finalize")
+def auth_finalize(payload: dict):
+    if not SUPABASE_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase authentication is not configured on this server.",
+        )
+
+    try:
+        access_token = None
+        refresh_token = None
+
+        if payload.get("code"):
+            session = supabase.auth.exchange_code_for_session(payload["code"])
+            sess = getattr(session, "session", None) or session.get("session")
+            access_token = getattr(sess, "access_token", None) or (
+                sess.get("access_token") if isinstance(sess, dict) else None
+            )
+            refresh_token = getattr(sess, "refresh_token", None) or (
+                sess.get("refresh_token") if isinstance(sess, dict) else None
+            )
+
+        elif payload.get("access_token"):
+            access_token = payload["access_token"]
+            refresh_token = payload.get("refresh_token")
+
+        else:
+            raise HTTPException(status_code=400, detail="Missing code/access_token")
+
+        if not access_token:
+            raise HTTPException(
+                status_code=500,
+                detail="Could not obtain access token from Supabase session.",
+            )
+
+        user_resp = supabase.auth.get_user(access_token)
+        u = getattr(user_resp, "user", None) or user_resp.get("user")
+        meta = getattr(u, "user_metadata", None) or (
+            u.get("user_metadata") if isinstance(u, dict) else {}
+        ) or {}
+
+        company_slug = meta.get("company_slug") or meta.get("company")
+        redirect_to = (
+            f"/company/{company_slug}/dashboard" if company_slug else "/dashboard"
+        )
+
+        resp = JSONResponse({"ok": True, "redirect_to": redirect_to})
+
+        resp.set_cookie("wy_access", access_token, httponly=True, samesite="lax")
+        if refresh_token:
+            resp.set_cookie("wy_refresh", refresh_token, httponly=True, samesite="lax")
+
+        return resp
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/auth/exchange")
