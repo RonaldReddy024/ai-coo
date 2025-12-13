@@ -31,6 +31,9 @@ def send_magic_link(payload: dict):
 
     email = payload.get("email")
     try:
+        print("SUPABASE_URL:", os.getenv("SUPABASE_URL"))
+        print("ANON starts eyJ:", (os.getenv("SUPABASE_ANON_KEY") or "").startswith("eyJ"))
+        print("ANON len:", len(os.getenv("SUPABASE_ANON_KEY") or ""))
         supabase.auth.sign_in_with_otp(
             {
                 "email": email,
