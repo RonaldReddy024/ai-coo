@@ -111,8 +111,8 @@ async def login_page(request: Request):
     )
 
 
-@router.post("/auth/magic-link")
-def send_magic_link(email: str = Form(...)):
+@router.post("/auth/magic-link", response_class=HTMLResponse)
+def send_magic_link(request: Request, email: str = Form(...)):
     if not SUPABASE_AVAILABLE:
         raise HTTPException(
             status_code=503,
@@ -131,7 +131,10 @@ def send_magic_link(email: str = Form(...)):
                 },
             }
         )
-        return {"ok": True, "message": "Magic link sent"}
+        return templates.TemplateResponse(
+            "magic_link_sent.html",
+            {"request": request, "email": email},
+        )
     except Exception as e:
         logger.exception("Magic link send failed")
         raise HTTPException(status_code=500, detail=str(e))
