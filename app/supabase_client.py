@@ -14,7 +14,7 @@ from supabase import Client, create_client
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
 
-# Load .env explicitly
+# Load .env explicitly before creating the client
 load_dotenv(dotenv_path=ENV_PATH)
 
 # Debug logger
