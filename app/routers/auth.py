@@ -196,12 +196,25 @@ def auth_callback_page(
     return """
 <!doctype html>
 <html>
-  <head><meta charset="utf-8"><title>Logging in…</title></head>
+  <head>
+    <meta charset=\"utf-8\">
+    <title>Logging in…</title>
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  </head>
   <body>
     <h3>Logging you in…</h3>
-    <pre id="debug" style="white-space:pre-wrap;"></pre>
+    <pre id=\"debug\" style=\"white-space:pre-wrap;\"></pre>
     <script>
       const debug = document.getElementById("debug");
+
+      // Always try to send the user onward, even if the auth helpers fail.
+      const goToDashboard = () => {
+        if (!goToDashboard.called) {
+          goToDashboard.called = true;
+          window.location.replace("/dashboard");
+        }
+      };
+      setTimeout(goToDashboard, 2000);
 
       // Supabase may send either ?code=... or #access_token=...
       const url = new URL(window.location.href);
@@ -223,20 +236,26 @@ def auth_callback_page(
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({ code })
-        }).then(r => r.json()).then(data => {
-          if (data.ok) window.location.href = "/dashboard";
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) goToDashboard();
           else debug.textContent += "\n\nExchange failed: " + JSON.stringify(data);
-        });
+        })
+        .catch(err => debug.textContent += "\n\nExchange error: " + err);
       } else if (access_token) {
         // If tokens came in fragment, you can store a cookie/session server-side by POSTing them
         fetch("/auth/store", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({ access_token, refresh_token })
-        }).then(r => r.json()).then(data => {
-          if (data.ok) window.location.href = "/dashboard";
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) goToDashboard();
           else debug.textContent += "\n\nStore failed: " + JSON.stringify(data);
-        });
+        })
+        .catch(err => debug.textContent += "\n\nStore error: " + err);
       } else {
         debug.textContent += "\n\nNo token/code found in URL. Try opening the link in Chrome (not inside Gmail).";
       }
