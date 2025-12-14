@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..deps import get_current_user_email, get_db
 from .. import models
-from ..schemas import Sprint, SprintWithIssues
+from ..schemas import Sprint, SprintCollaborator, SprintCollaboratorCreate, SprintWithIssues
 from ..schemas import Issue as IssueSchema
 from ..schemas import IssueCreate, SprintAlert, SprintCreate, SprintRiskReport
 
@@ -24,6 +25,27 @@ def _get_owned_sprint(
     if not sprint:
         raise HTTPException(status_code=404, detail="Sprint not found")
     return sprint
+
+def _get_accessible_sprint(
+    sprint_id: int, user_email: str, db: Session
+) -> models.Sprint:
+    sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+
+    if sprint.owner_email == user_email:
+        return sprint
+
+    collaborator = (
+        db.query(models.SprintCollaborator)
+        .filter_by(sprint_id=sprint_id, email=user_email)
+        .first()
+    )
+    if not collaborator:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+
+    return sprint
+
 
 
 def compute_risk_for_sprint(sprint: models.Sprint) -> None:
@@ -280,7 +302,14 @@ def list_sprints(
     user_email: str = Depends(get_current_user_email),
 ):
     query = db.query(models.Sprint).join(models.Project)
-    query = query.filter(models.Sprint.owner_email == user_email)
+    query = query.filter(
+        or_(
+            models.Sprint.owner_email == user_email,
+            models.Sprint.collaborators.any(
+                models.SprintCollaborator.email == user_email
+            ),
+        )
+    )
     
     if company_id is not None:
         query = query.join(models.Company).filter(models.Company.id == company_id)
@@ -298,7 +327,14 @@ def list_sprints_with_issues(
     db: Session = Depends(get_db),
     user_email: str = Depends(get_current_user_email),
 ):
-    query = db.query(models.Sprint).filter(models.Sprint.owner_email == user_email)
+    query = db.query(models.Sprint).filter(
+        or_(
+            models.Sprint.owner_email == user_email,
+            models.Sprint.collaborators.any(
+                models.SprintCollaborator.email == user_email
+            ),
+        )
+    )
 
     if project_id:
         query = query.filter(models.Sprint.project_id == project_id)
@@ -323,7 +359,7 @@ def list_issues_for_sprint(
     db: Session = Depends(get_db),
     user_email: str = Depends(get_current_user_email),
 ):
-    sprint = _get_owned_sprint(sprint_id, user_email, db)
+    sprint = _get_accessible_sprint(sprint_id, user_email, db)
 
     return sprint.issues
 
@@ -362,6 +398,70 @@ def create_issue_for_sprint(
     return issue
 
 
+# ---------- Sprint collaborators / members ----------
+
+
+@router.get("/{sprint_id}/members", response_model=List[SprintCollaborator])
+def list_sprint_members(
+    sprint_id: int,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    sprint = _get_accessible_sprint(sprint_id, user_email, db)
+    return sprint.collaborators
+
+
+@router.post("/{sprint_id}/members", response_model=SprintCollaborator)
+def add_sprint_member(
+    sprint_id: int,
+    payload: SprintCollaboratorCreate,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    _ = _get_owned_sprint(sprint_id, user_email, db)
+
+    existing = (
+        db.query(models.SprintCollaborator)
+        .filter_by(sprint_id=sprint_id, email=payload.email)
+        .first()
+    )
+    if existing:
+        return existing
+
+    collaborator = models.SprintCollaborator(
+        sprint_id=sprint_id,
+        email=payload.email,
+    )
+    db.add(collaborator)
+    db.commit()
+    db.refresh(collaborator)
+
+    return collaborator
+
+
+@router.delete("/{sprint_id}/members", status_code=204)
+def remove_sprint_member(
+    sprint_id: int,
+    email: str = Query(..., description="Email of the member to remove"),
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    _ = _get_owned_sprint(sprint_id, user_email, db)
+
+    collaborator = (
+        db.query(models.SprintCollaborator)
+        .filter_by(sprint_id=sprint_id, email=email)
+        .first()
+    )
+    if not collaborator:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    db.delete(collaborator)
+    db.commit()
+
+    return Response(status_code=204)
+
+
 # ---------- Sprint details & risk ----------
 
 @router.get("/{sprint_id}", response_model=SprintWithIssues)
@@ -370,7 +470,7 @@ def get_sprint(
     db: Session = Depends(get_db),
     user_email: str = Depends(get_current_user_email),
 ):
-    sprint = _get_owned_sprint(sprint_id, user_email, db)
+    sprint = _get_accessible_sprint(sprint_id, user_email, db)
 
     _ = sprint.issues
     compute_risk_for_sprint(sprint)
@@ -386,7 +486,7 @@ def get_sprint_alerts(
     db: Session = Depends(get_db),
     user_email: str = Depends(get_current_user_email),
 ):
-    sprint = _get_owned_sprint(sprint_id, user_email, db)
+    sprint = _get_accessible_sprint(sprint_id, user_email, db)
     
     # Ensure issues are loaded
     _ = sprint.issues
@@ -406,7 +506,7 @@ def get_sprint_risk(
     db: Session = Depends(get_db),
     user_email: str = Depends(get_current_user_email),
 ):
-    sprint = _get_owned_sprint(sprint_id, user_email, db)
+    sprint = _get_accessible_sprint(sprint_id, user_email, db)
 
     # Ensure issues are loaded
     _ = sprint.issues
