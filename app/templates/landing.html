@@ -167,6 +167,111 @@
             background: rgba(34, 197, 94, 0.1);
             color: #22c55e;
         }
+
+        .section {
+            margin-top: 48px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .section-subtitle {
+            color: #9ca3af;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .info-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(55, 65, 81, 0.9);
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .info-card h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+        }
+
+        .info-card ul {
+            margin: 0;
+            padding-left: 18px;
+            color: #cbd5f5;
+            line-height: 1.55;
+            font-size: 14px;
+        }
+
+        .info-card p {
+            margin: 0 0 10px;
+            color: #cbd5f5;
+            font-size: 14px;
+        }
+
+        .metric-pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .metric-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(76, 29, 149, 0.25);
+            border: 1px solid rgba(139, 92, 246, 0.7);
+            font-size: 12px;
+            color: #e5e7eb;
+        }
+
+        .calc-tooltip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            position: relative;
+            cursor: help;
+        }
+
+        .calc-tooltip::before {
+            content: "🧾";
+            font-size: 12px;
+        }
+
+        .calc-tooltip .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            top: 120%;
+            left: 0;
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid rgba(55, 65, 81, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            width: 240px;
+            font-size: 12px;
+            line-height: 1.45;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+            transition: opacity 0.12s ease, visibility 0.12s ease;
+            z-index: 2;
+        }
+
+        .calc-tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -199,7 +304,12 @@
         </div>
 
         <div class="hero-panel">
-            <div class="hero-panel-title">Today’s sprint risk snapshot</div>
+            <div class="hero-panel-title">
+                Today’s sprint risk snapshot
+                <span class="calc-tooltip">How this is calculated
+                    <span class="tooltip-text">This demo uses your sprint tasks, recent status changes, and task owners to flag risk bands. Update a task’s status or assignee to see the snapshot refresh.</span>
+                </span>
+            </div>
             <div class="hero-panel-item">
                 <span>Checkout revamp</span>
                 <span class="risk-chip risk-high">HIGH</span>
@@ -211,6 +321,35 @@
             <div class="hero-panel-item">
                 <span>Billing reliability</span>
                 <span class="risk-chip risk-low">LOW</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">Deep, defensible productivity intelligence <span style="color:#22c55e;">(future)</span></div>
+        <div class="section-subtitle">We have a clear path to richer analytics, but we won’t ship these until the core pilot feels reliable.</div>
+        <div class="card-grid">
+            <div class="info-card">
+                <h3>Planned capabilities</h3>
+                <ul>
+                    <li>Time-to-completion trends and forecasted delays.</li>
+                    <li>Bottleneck detection and risk recurrence across squads.</li>
+                    <li>Overloaded team member alerts and sprint volatility views.</li>
+                </ul>
+                <p style="color:#9ca3af;">Requires historical data, consistent usage, and more complex models—so we’re intentionally not doing this yet.</p>
+            </div>
+            <div class="info-card">
+                <h3>What matters for pilots</h3>
+                <ul>
+                    <li>Data remains your data, and snapshots update logically.</li>
+                    <li>Numbers change when you act—close an issue, remove a blocker, add a teammate.</li>
+                    <li>Fast, understandable summaries instead of perfect AI on day one.</li>
+                </ul>
+                <div class="metric-pill-row">
+                    <span class="metric-pill">Per-user signals: focus &amp; load</span>
+                    <span class="metric-pill">Per-sprint: risk, volatility</span>
+                    <span class="metric-pill">Per-org: reliability trends</span>
+                </div>
             </div>
         </div>
     </section>
