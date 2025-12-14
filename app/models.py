@@ -30,7 +30,8 @@ class Company(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-
+    owner_email = Column(String, index=True, nullable=True)
+    
     integrations = relationship("Integration", back_populates="company", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="company", cascade="all, delete-orphan")
 
@@ -54,6 +55,7 @@ class Project(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     name = Column(String, nullable=False)
     jira_key = Column(String, nullable=True, unique=True)
+    owner_email = Column(String, index=True, nullable=True)
     
     company = relationship("Company", back_populates="projects")
 
@@ -71,7 +73,8 @@ class Sprint(Base):
     risk_score = Column(Float, default=0.0)
     risk_level = Column(String, default="low")
     last_evaluated_at = Column(DateTime, default=datetime.utcnow)
-
+    owner_email = Column(String, index=True, nullable=True)
+    
     project = relationship("Project", back_populates="sprints")
     issues = relationship("Issue", back_populates="sprint", cascade="all, delete-orphan")
 
