@@ -5,6 +5,7 @@ import logging
 from typing import Optional
 
 from pydantic import BaseModel
+from starlette.datastructures import URL
 
 from ..supabase_client import SUPABASE_AVAILABLE, supabase
 
@@ -127,18 +128,31 @@ def send_magic_link(
             detail="Supabase authentication is not configured on this server.",
         )
 
+    normalized_email = (email or "").strip()
+    if not normalized_email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    callback_url = URL(str(request.url_for("auth_callback_page")))
+    query_params = {}
+
+    if next_path and isinstance(next_path, str):
+        query_params["next"] = next_path
+
+    query_params["login_email"] = normalized_email
+    callback_url = str(callback_url.include_query_params(**query_params))
+
     try:
         supabase.auth.sign_in_with_otp(
             {
-                "email": email,
+                "email": normalized_email,
                 "options": {
-                    "email_redirect_to": "http://127.0.0.1:8000/dashboard",
+                    "email_redirect_to": callback_url,
                 },
             }
         )
         return templates.TemplateResponse(
             "magic_link_sent.html",
-            {"request": request, "email": email},
+            {"request": request, "email": normalized_email},
         )
     except Exception as e:
         logger.exception("Magic link send failed")
@@ -163,7 +177,8 @@ def auth_callback_page():
     const url = new URL(window.location.href);
     const code = url.searchParams.get("code");
     const next = url.searchParams.get("next") || "/dashboard";
-    
+    const loginEmail = url.searchParams.get("login_email") || undefined;
+
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
     const hashParams = new URLSearchParams(hash);
     const access_token = hashParams.get("access_token");
@@ -189,9 +204,8 @@ def auth_callback_page():
     (async () => {
       try {
         let payload = null;
-
-        if (code) payload = { code, next };
-        else if (access_token) payload = { access_token, refresh_token, next };
+        if (code) payload = { code, next, login_email: loginEmail };
+        else if (access_token) payload = { access_token, refresh_token, next, login_email: loginEmail };
         else {
           statusEl.textContent = "This login link is missing token data.";
           errEl.textContent = "Tip: Open the link in Chrome (not Gmail in-app browser).";
@@ -253,18 +267,37 @@ def auth_finalize(payload: dict):
 
         raw_next = payload.get("next")
         redirect_to = raw_next if isinstance(raw_next, str) and raw_next.startswith("/") else None
-        
-        if not redirect_to:
-            user_resp = supabase.auth.get_user(access_token)
-            u = getattr(user_resp, "user", None) or user_resp.get("user")
-            meta = getattr(u, "user_metadata", None) or (
-                u.get("user_metadata") if isinstance(u, dict) else {}
-            ) or {}
 
-            company_slug = meta.get("company_slug") or meta.get("company")
-            redirect_to = (
-                f"/company/{company_slug}/dashboard" if company_slug else "/dashboard"
-            )
+
+        user_email = None
+        if not redirect_to:
+            try:
+                user_resp = supabase.auth.get_user(access_token)
+                u = getattr(user_resp, "user", None) or user_resp.get("user")
+                meta = getattr(u, "user_metadata", None) or (
+                    u.get("user_metadata") if isinstance(u, dict) else {}
+                ) or {}
+
+                company_slug = meta.get("company_slug") or meta.get("company")
+                redirect_to = (
+                    f"/company/{company_slug}/dashboard" if company_slug else "/dashboard"
+                )
+                user_email = _extract_email_from_user(u)
+            except Exception:
+                logger.exception("Failed to fetch user while building redirect")
+
+        if not user_email:
+            try:
+                user_resp = supabase.auth.get_user(access_token)
+                user_obj = getattr(user_resp, "user", None) or user_resp.get("user")
+                user_email = _extract_email_from_user(user_obj)
+            except Exception:
+                logger.exception("Failed to fetch user during auth finalize")
+
+        if not user_email:
+            login_email = payload.get("login_email")
+            if isinstance(login_email, str) and login_email.strip():
+                user_email = login_email.strip()
 
         redirect_to = redirect_to if redirect_to.startswith("/") else "/dashboard"
 
@@ -273,6 +306,9 @@ def auth_finalize(payload: dict):
         resp.set_cookie("wy_access", access_token, httponly=True, samesite="lax")
         if refresh_token:
             resp.set_cookie("wy_refresh", refresh_token, httponly=True, samesite="lax")
+
+        if user_email:
+            resp.set_cookie("wy_email", user_email, httponly=True, samesite="lax")
 
         return resp
 
