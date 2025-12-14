@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import textwrap
 from typing import Any, Dict, List, Tuple
 
 from openai import OpenAI
@@ -133,34 +134,146 @@ def analyze_task_relationships(
     return next_steps_text, unique_depends, unique_blocks
 
 
+def _infer_context_flags(text: str) -> Dict[str, bool]:
+    text = text.lower()
+    return {
+        "is_finance": any(k in text for k in ["revenue", "cost", "pricing", "budget", "pnl"]),
+        "is_growth": any(k in text for k in ["campaign", "seo", "marketing", "growth", "acquisition"]),
+        "is_data": any(k in text for k in ["data", "dashboard", "report", "analysis", "analytics"]),
+        "is_engineering": any(k in text for k in ["build", "develop", "integration", "api", "deploy", "ship"]),
+        "is_customer": any(k in text for k in ["customer", "support", "cx", "success", "churn"]),
+    }
+
+
+def _infer_currency(metadata: Dict[str, Any], fallback: str = "INR") -> str:
+    currency = metadata.get("currency") or metadata.get("currency_code")
+    if isinstance(currency, str) and currency.strip():
+        return currency.strip().upper()
+    return fallback
+
+
 def build_local_fallback_plan(
     title: str, metadata: Dict[str, Any], currency: str = "INR"
 ) -> str:
-    return f"""Summary: Execution plan for '{title}' (local fallback, external AI unavailable).
+    """
+    Build a task-specific execution plan when the external AI provider is unavailable.
 
-Currency: {currency} (₹)
+    The content adapts to the title/metadata so every task gets tailored steps,
+    risks, and data needs instead of a static boilerplate.
+    """
 
-Steps:
-- Confirm scope and success criteria with stakeholders in the relevant team.
-- Log this task into your tracking tool with priority 'normal'.
-- Identify 5–10 key KPIs and where their data lives (BI tool, data warehouse, etc.).
-- Pull recent KPI data (₹ amounts) for the last 4–12 weeks, and check for trends and anomalies.
-- Draft a concise report or slide deck summarizing current status and key insights.
-- Review the report with the relevant team and finalize next steps.
+    squad = metadata.get("squad") or metadata.get("team")
+    priority = metadata.get("priority", "normal")
+    company = metadata.get("company") or metadata.get("company_id")
+    inferred_currency = _infer_currency(metadata, currency)
 
-Risks:
-- Data might be incomplete, inconsistent, or delayed.
-- Stakeholders may not align on which KPIs matter most.
-- Tight timelines may limit the depth of analysis.
+    text_blob = f"{title} {metadata}"
+    flags = _infer_context_flags(text_blob)
 
-DataNeeded:
-- Recent KPI dashboards or exports (₹ values).
-- Targets/OKRs from leadership.
-- Any existing KPI definitions or documentation.
+    summary_context = []
+    if squad:
+        summary_context.append(f"squad {squad}")
+    if company:
+        summary_context.append(f"company {company}")
+    context_str = ", ".join(summary_context) if summary_context else "this task"
 
-Note:
-- External AI provider is currently unavailable (quota, network, or configuration issue).
-- Used the built-in local INR-based playbook instead."""
+    steps: list[str] = [
+        f"Clarify owner, deadline, and success criteria with {context_str}.",
+        f"Log this task into your tracking tool with priority '{priority}'.",
+    ]
+
+    if flags["is_finance"]:
+        steps.append(
+            "Pull recent financial KPIs and compare week-over-week to flag >10% movements (₹ conversions included)."
+        )
+    if flags["is_growth"]:
+        steps.append(
+            "Audit active campaigns and attribution to understand short-term lifts or drops."
+        )
+    if flags["is_data"]:
+        steps.append(
+            "Validate data freshness and definitions with BI/analytics before publishing any summary."
+        )
+    if flags["is_engineering"]:
+        steps.append(
+            "Break down implementation work into smaller tickets with testable acceptance criteria."
+        )
+    if flags["is_customer"]:
+        steps.append("Review recent customer feedback/tickets to capture qualitative signals.")
+
+    dependencies = metadata.get("dependencies") or metadata.get("depends_on") or []
+    if isinstance(dependencies, (list, tuple)) and dependencies:
+        steps.append("Confirm prerequisites are done: " + ", ".join(map(str, dependencies)) + ".")
+    elif metadata.get("requires"):
+        steps.append(f"Confirm prerequisites are done: {metadata['requires']}.")
+
+    risks: list[str] = []
+    if flags["is_finance"]:
+        risks.append("Delayed or inconsistent revenue data may hide anomalies.")
+    if flags["is_growth"]:
+        risks.append("Channel mix changes could distort short-term performance.")
+    if flags["is_engineering"]:
+        risks.append("Integration or API limits may block delivery timelines.")
+    if flags["is_customer"]:
+        risks.append("Customer-impacting changes may increase churn if not communicated.")
+    if flags["is_data"]:
+        risks.append("Metric definitions may not be aligned across stakeholders.")
+    if not risks:
+        risks.append("Key inputs might be incomplete or delayed, affecting decision quality.")
+
+    data_needed: list[str] = []
+    if flags["is_finance"]:
+        data_needed.append(
+            f"Recent revenue/cost exports with {inferred_currency} amounts and volumes."
+        )
+    if flags["is_growth"]:
+        data_needed.append("Campaign performance by channel with spend vs. conversions.")
+    if flags["is_data"]:
+        data_needed.append("Source-of-truth dashboards or warehouse tables with metric definitions.")
+    if flags["is_engineering"]:
+        data_needed.append("API docs, architectural constraints, and staging credentials.")
+    if flags["is_customer"]:
+        data_needed.append("Latest NPS/CSAT or churn/ticket data broken down by segment.")
+    if not data_needed:
+        data_needed.append("Baseline metrics, owners, and success criteria from stakeholders.")
+
+    dependencies_text = ""
+    if isinstance(dependencies, (list, tuple)) and dependencies:
+        dependencies_text = "\n".join(f"- {dep}" for dep in dependencies)
+    elif metadata.get("requires"):
+        dependencies_text = f"- {metadata['requires']}"
+    else:
+        dependencies_text = "- No explicit dependencies captured in metadata."
+
+    steps_block = "\n".join(f"- {item}" for item in steps)
+    risks_block = "\n".join(f"- {item}" for item in risks)
+    data_needed_block = "\n".join(f"- {item}" for item in data_needed)
+
+    return textwrap.dedent(
+        f"""
+        Summary: Execution plan for '{title}' (local fallback, external AI unavailable).
+
+        Context:
+        - Currency: {inferred_currency}
+        - Scope: {context_str}
+
+        Steps:
+        {steps_block}
+
+        Risks:
+        {risks_block}
+
+        DataNeeded:
+        {data_needed_block}
+
+        Dependencies:
+        {dependencies_text}
+
+        Note:
+        - External AI provider is currently unavailable (quota, network, or configuration issue).
+        - Used the built-in local fallback playbook tuned to this task.
+        """
+    ).strip()
 
 
 def run_ai_coo_logic(title: str, metadata: dict) -> tuple[str, str]:
