@@ -131,6 +131,9 @@ class Task(Base):
     # Who owns this task (identified by email)
     owner_email = Column(String, index=True, nullable=True)
 
+    # Explicit prerequisite (single-task dependency)
+    prerequisite_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+
     # Optional relationship back to Company (if Company model exists)
     company = relationship("Company", backref="tasks", lazy="joined")
 
