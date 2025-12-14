@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from datetime import datetime
-import httpx
-from pydantic import BaseModel
 
-from ..deps import get_db
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from ..deps import get_current_user_email, get_db
 from ..config import settings
 from .. import models
 from ..services.whatsapp import whatsapp_service
@@ -24,7 +25,12 @@ class WhatsAppAlert(BaseModel):
 
 
 @router.post("/jira/import-project")
-async def import_jira_project(jira_project_key: str, company_id: int, db: Session = Depends(get_db)):
+async def import_jira_project(
+    jira_project_key: str,
+    company_id: int,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
     """
     Fetch sprints & issues from a Jira project and store them.
     This is a simple importer that you can refine later.
@@ -36,13 +42,26 @@ async def import_jira_project(jira_project_key: str, company_id: int, db: Sessio
     if not base_url or not settings.JIRA_API_TOKEN:
         raise HTTPException(status_code=400, detail="Jira not configured")
 
-    # Create or get project
-    project = db.query(models.Project).filter_by(jira_key=jira_project_key, company_id=company_id).first()
+    # Ensure the company belongs to the current user, then create or get project
+    company = (
+        db.query(models.Company)
+        .filter_by(id=company_id, owner_email=user_email)
+        .first()
+    )
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    project = (
+        db.query(models.Project)
+        .filter_by(jira_key=jira_project_key, company_id=company_id, owner_email=user_email)
+        .first()
+    )
     if not project:
         project = models.Project(
             company_id=company_id,
             name=f"Jira {jira_project_key}",
-            jira_key=jira_project_key
+            jira_key=jira_project_key,
+            owner_email=user_email,
         )
         db.add(project)
         db.commit()
@@ -67,7 +86,8 @@ async def import_jira_project(jira_project_key: str, company_id: int, db: Sessio
         start_date=datetime.utcnow(),
         end_date=datetime.utcnow(),  # you'll override with real dates when you use boards/sprints API
         risk_score=0.0,
-        risk_level="low"
+        risk_level="low",
+        owner_email=user_email,
     )
     db.add(sprint)
     db.commit()
