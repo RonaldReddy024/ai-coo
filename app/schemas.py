@@ -43,7 +43,7 @@ class SprintBase(BaseModel):
     project_id: int
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-
+    baseline_date: Optional[datetime] = None
 
 class SprintCreate(SprintBase):
     pass
@@ -59,6 +59,8 @@ class Sprint(BaseModel):
     risk_level: str
     last_evaluated_at: datetime
 
+    baseline_date: Optional[datetime] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -96,6 +98,21 @@ class SprintAlert(BaseModel):
     message: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SprintSnapshot(BaseModel):
+    tasks_total: int
+    tasks_completed: int
+    risks_open: int
+    days_active: int
+
+
+class SprintInsights(BaseModel):
+    next_steps: List[str]
+    triggered_risks: List[str]
+    data_needed: List[str]
+    snapshot: SprintSnapshot
+    label: str
 
 
 # ---------- Issue Schemas ----------
