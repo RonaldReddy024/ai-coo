@@ -94,6 +94,11 @@ def ensure_sqlite_schema(engine):
                 text("ALTER TABLE tasks ADD COLUMN owner_email VARCHAR;"),
             )
 
+        if "prerequisite_task_id" not in columns:
+            conn.execute(
+                text("ALTER TABLE tasks ADD COLUMN prerequisite_task_id INTEGER;"),
+            )
+
         sprint_columns = {row[1] for row in conn.execute(text("PRAGMA table_info(sprints);"))}
         if "owner_email" not in sprint_columns:
             conn.execute(text("ALTER TABLE sprints ADD COLUMN owner_email VARCHAR;"))
@@ -107,3 +112,30 @@ def ensure_sqlite_schema(engine):
         company_columns = {row[1] for row in conn.execute(text("PRAGMA table_info(companies);"))}
         if "owner_email" not in company_columns:
             conn.execute(text("ALTER TABLE companies ADD COLUMN owner_email VARCHAR;"))
+
+        # Opportunistically backfill a hard-coded dependency so it is explicit
+        # in data instead of inferred from text alone.
+        try:
+            prereq = conn.execute(
+                text(
+                    "SELECT id FROM tasks WHERE title LIKE :title ORDER BY id DESC LIMIT 1"
+                ),
+                {"title": "Define Operational KPIs%"},
+            ).fetchone()
+            baseline = conn.execute(
+                text(
+                    "SELECT id, prerequisite_task_id FROM tasks WHERE title LIKE :title ORDER BY id DESC LIMIT 1"
+                ),
+                {"title": "Baseline KPI Analysis%"},
+            ).fetchone()
+
+            if prereq and baseline and baseline[1] is None:
+                conn.execute(
+                    text(
+                        "UPDATE tasks SET prerequisite_task_id = :prereq_id WHERE id = :task_id"
+                    ),
+                    {"prereq_id": prereq[0], "task_id": baseline[0]},
+                )
+        except Exception:
+            # If the table doesn't exist yet or titles don't match, skip silently
+            pass
