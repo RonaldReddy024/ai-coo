@@ -178,7 +178,10 @@ def auth_callback_page():
     const code = url.searchParams.get("code");
     const next = url.searchParams.get("next") || "/dashboard";
     const loginEmail = url.searchParams.get("login_email") || undefined;
-
+    const errorDescription =
+      url.searchParams.get("error_description") || url.searchParams.get("error");
+    const errorCode = url.searchParams.get("error_code") || undefined;
+    
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
     const hashParams = new URLSearchParams(hash);
     const access_token = hashParams.get("access_token") || url.searchParams.get("access_token");
@@ -203,6 +206,14 @@ def auth_callback_page():
 
     (async () => {
       try {
+        if (errorDescription) {
+          statusEl.textContent = "Login link is invalid or expired.";
+          errEl.textContent = errorCode
+            ? `${errorDescription} (code: ${errorCode})`
+            : errorDescription;
+          return;
+        }
+
         let payload = null;
         if (code) payload = { code, next, login_email: loginEmail };
         else if (access_token) payload = { access_token, refresh_token, next, login_email: loginEmail };
