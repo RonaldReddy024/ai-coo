@@ -165,6 +165,96 @@
     .status-pending   { background: #fbbf2422; color: #facc15; }
     .status-running   { background: #38bdf822; color: #7dd3fc; }
 
+    /* Sprint members */
+    .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .member-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .member-controls select {
+      background: #020617;
+      border: 1px solid #1f2937;
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #e5e7eb;
+      font-size: 13px;
+      min-width: 180px;
+    }
+
+    .member-controls button,
+    .member-form button {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #e5e7eb;
+    }
+
+    .member-controls button:hover,
+    .member-form button:hover {
+      background: #1d4ed8;
+    }
+
+    .member-form {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .member-form input {
+      background: #020617;
+      border: 1px solid #1f2937;
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: #e5e7eb;
+      font-size: 13px;
+      min-width: 260px;
+    }
+
+    .member-form button.secondary {
+      background: transparent;
+      border: 1px solid #1f2937;
+      color: #e5e7eb;
+    }
+
+    .member-list {
+      margin: 12px 0 0 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .member-pill {
+      padding: 6px 10px;
+      border-radius: 12px;
+      background: #0f172a;
+      border: 1px solid #1f2937;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .member-message {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
     .meta {
       color: #9ca3af;
       font-size: 12px;
@@ -254,6 +344,37 @@
     </div>
   </div>
 
+  <div class="card" style="margin-bottom: 16px;">
+    <div class="card-header-row">
+      <div>
+        <div class="pill-info">Sprint members</div>
+        <p class="muted" style="margin: 6px 0 0 0;">
+          Invite teammates so they can sign in with their own email and view this sprint's risks.
+        </p>
+      </div>
+      <div class="member-controls">
+        <select id="sprint-selector" aria-label="Select sprint"></select>
+        <button id="show-add-member">+ Add member</button>
+      </div>
+    </div>
+
+    <div id="add-member-form" class="member-form" style="display: none;">
+      <input
+        type="email"
+        id="member-email"
+        placeholder="teammate@company.com"
+        autocomplete="email"
+      />
+      <button id="confirm-add-member">Invite</button>
+      <button id="cancel-add-member" class="secondary" type="button">Cancel</button>
+      <span class="muted" style="font-size: 12px;">Collaborators can log in with their own email to see this sprint.</span>
+    </div>
+
+    <div id="member-empty" class="muted" style="margin-top: 10px;">Select a sprint to see its members.</div>
+    <ul id="member-list" class="member-list"></ul>
+    <div id="member-message" class="member-message"></div>
+  </div>
+
   <div class="filters">
     <label>
       Status
@@ -338,6 +459,8 @@
 let allTasks = [];
 let showFallbackOnly = false;
 let selectedTaskId = null;
+let sprints = [];
+let selectedSprintId = null;
     
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
@@ -377,6 +500,124 @@ async function fetchTasks() {
   } catch (err) {
     console.error("Error fetching tasks:", err);
   }
+}
+
+async function fetchSprints() {
+  try {
+    const res = await fetch("/sprints");
+    if (!res.ok) throw new Error(`Unable to load sprints (HTTP ${res.status})`);
+    sprints = await res.json();
+    renderSprints();
+  } catch (err) {
+    console.error(err);
+    setMemberMessage(err.message, true);
+  }
+}
+
+function renderSprints() {
+  const select = document.getElementById("sprint-selector");
+  if (!select) return;
+  select.innerHTML = "";
+
+  if (!sprints || sprints.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No sprints found";
+    select.appendChild(opt);
+    document.getElementById("member-empty").textContent =
+      "Create a sprint first to invite members.";
+    return;
+  }
+
+  for (const sprint of sprints) {
+    const opt = document.createElement("option");
+    opt.value = sprint.id;
+    opt.textContent = `${sprint.name} (Project ${sprint.project_id})`;
+    select.appendChild(opt);
+  }
+
+  if (!selectedSprintId && sprints.length > 0) {
+    selectedSprintId = sprints[0].id;
+  }
+  select.value = selectedSprintId;
+  loadMembers(selectedSprintId);
+}
+
+async function loadMembers(sprintId) {
+  if (!sprintId) return;
+  try {
+    const res = await fetch(`/sprints/${sprintId}/members`);
+    if (!res.ok) throw new Error(`Unable to load members (HTTP ${res.status})`);
+    const members = await res.json();
+    renderMembers(members);
+  } catch (err) {
+    console.error(err);
+    setMemberMessage(err.message, true);
+  }
+}
+
+function renderMembers(members) {
+  const list = document.getElementById("member-list");
+  const empty = document.getElementById("member-empty");
+  if (!list || !empty) return;
+
+  list.innerHTML = "";
+  if (!members || members.length === 0) {
+    empty.textContent = "No members yet. Add teammates to share this sprint.";
+    return;
+  }
+
+  empty.textContent = "";
+  for (const m of members) {
+    const li = document.createElement("li");
+    li.className = "member-pill";
+    li.textContent = m.email;
+    list.appendChild(li);
+  }
+}
+
+async function addMember() {
+  const emailInput = document.getElementById("member-email");
+  if (!emailInput || !selectedSprintId) return;
+  const email = (emailInput.value || "").trim();
+  if (!email) {
+    setMemberMessage("Enter an email to invite a member.", true);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/sprints/${selectedSprintId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `Unable to add member (HTTP ${res.status})`);
+    }
+
+    emailInput.value = "";
+    toggleAddMemberForm(false);
+    setMemberMessage("Member added. They can now log in with their email.");
+    await loadMembers(selectedSprintId);
+  } catch (err) {
+    console.error(err);
+    setMemberMessage(err.message || "Failed to add member", true);
+  }
+}
+
+function toggleAddMemberForm(show) {
+  const form = document.getElementById("add-member-form");
+  if (!form) return;
+  form.style.display = show ? "flex" : "none";
+}
+
+function setMemberMessage(msg, isError = false) {
+  const msgEl = document.getElementById("member-message");
+  if (!msgEl) return;
+  msgEl.textContent = msg || "";
+  msgEl.style.color = isError ? "#fca5a5" : "#9ca3af";
 }
 
 function getVisibleTasks() {
@@ -614,6 +855,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
   fetchTasks();
   setInterval(fetchTasks, 5000);
+
+  const sprintSelector = document.getElementById("sprint-selector");
+  if (sprintSelector) {
+    sprintSelector.addEventListener("change", (e) => {
+      selectedSprintId = Number(e.target.value) || null;
+      loadMembers(selectedSprintId);
+    });
+  }
+
+  const showAddBtn = document.getElementById("show-add-member");
+  if (showAddBtn) {
+    showAddBtn.addEventListener("click", () => {
+      toggleAddMemberForm(true);
+      const emailInput = document.getElementById("member-email");
+      if (emailInput) emailInput.focus();
+    });
+  }
+
+  const confirmAddBtn = document.getElementById("confirm-add-member");
+  if (confirmAddBtn) {
+    confirmAddBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      addMember();
+    });
+  }
+
+  const cancelAddBtn = document.getElementById("cancel-add-member");
+  if (cancelAddBtn) {
+    cancelAddBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleAddMemberForm(false);
+      setMemberMessage("");
+    });
+  }
+
+  fetchSprints();
 });
 </script>
 </body>
