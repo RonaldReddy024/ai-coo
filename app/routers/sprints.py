@@ -9,7 +9,14 @@ from ..deps import get_current_user_email, get_db
 from .. import models
 from ..schemas import Sprint, SprintCollaborator, SprintCollaboratorCreate, SprintWithIssues
 from ..schemas import Issue as IssueSchema
-from ..schemas import IssueCreate, SprintAlert, SprintCreate, SprintRiskReport
+from ..schemas import (
+    IssueCreate,
+    SprintAlert,
+    SprintCreate,
+    SprintInsights,
+    SprintRiskReport,
+    SprintSnapshot,
+)
 
 router = APIRouter()
 
@@ -265,6 +272,96 @@ def generate_alerts_for_sprint(sprint: models.Sprint) -> list[SprintAlert]:
     return alerts
 
 
+def _issue_status(issue: models.Issue) -> str:
+    return (issue.status or "").lower()
+
+
+def _last_activity_for_sprint(sprint: models.Sprint) -> datetime:
+    candidates: list[datetime] = []
+    for issue in sprint.issues or []:
+        if issue.updated_at:
+            candidates.append(issue.updated_at)
+        if issue.created_at:
+            candidates.append(issue.created_at)
+    if sprint.last_evaluated_at:
+        candidates.append(sprint.last_evaluated_at)
+    if sprint.start_date:
+        candidates.append(sprint.start_date)
+
+    return max(candidates) if candidates else datetime.utcnow()
+
+
+def build_sprint_insights(sprint: models.Sprint) -> SprintInsights:
+    issues = sprint.issues or []
+    done_like_statuses = {"done", "resolved", "closed", "completed"}
+    open_issues = [i for i in issues if _issue_status(i) not in done_like_statuses]
+    blockers = [i for i in issues if i.is_blocker]
+    unassigned = [i for i in issues if not i.assignee]
+
+    total_issues = len(issues)
+    completed_issues = len([i for i in issues if _issue_status(i) in done_like_statuses])
+    progress_pct = (completed_issues / total_issues * 100) if total_issues else 0
+
+    last_activity = _last_activity_for_sprint(sprint)
+    now = datetime.utcnow()
+
+    next_steps: list[str] = []
+    if not sprint.owner_email:
+        next_steps.append("Assign an owner to this sprint.")
+    if total_issues == 0:
+        next_steps.append("Add at least one task to define execution scope.")
+    if open_issues:
+        next_steps.append("Review and prioritize open tasks.")
+    if not blockers:
+        next_steps.append("Identify and log potential risks for this sprint.")
+    if last_activity < now - timedelta(days=7):
+        next_steps.append("Review sprint status — no updates in the last 7 days.")
+
+    triggered_risks: list[str] = []
+    if sprint.start_date and sprint.start_date.date() < now.date() - timedelta(days=14):
+        if progress_pct < 30:
+            triggered_risks.append("Sprint has low progress relative to its age.")
+    if unassigned:
+        triggered_risks.append("One or more tasks are unassigned.")
+    if blockers:
+        triggered_risks.append("Blocked tasks may delay sprint delivery.")
+    if sprint.risk_level == "high":
+        triggered_risks.append("High-severity risks require mitigation review.")
+    if last_activity < now - timedelta(days=10):
+        triggered_risks.append("No recent activity detected on this sprint.")
+
+    data_needed: list[str] = []
+    titles = [(i.title or "").lower() for i in issues]
+    has_data_attachment = any("data" in t or "dashboard" in t or "report" in t for t in titles)
+    has_analysis_task = any("analysis" in t or "investigation" in t for t in titles)
+
+    if total_issues == 0:
+        data_needed.append("Define KPIs for this sprint.")
+    if not has_data_attachment:
+        data_needed.append("Upload or link relevant data sources.")
+    if has_analysis_task and not has_data_attachment:
+        data_needed.append("Attach data required for analysis tasks.")
+    if sprint.end_date and not sprint.baseline_date:
+        data_needed.append("Set a baseline to measure progress against target.")
+
+    snapshot = SprintSnapshot(
+        tasks_total=total_issues,
+        tasks_completed=completed_issues,
+        risks_open=len(triggered_risks),
+        days_active=max(0, (now.date() - sprint.start_date.date()).days)
+        if sprint.start_date
+        else 0,
+    )
+
+    return SprintInsights(
+        next_steps=next_steps,
+        triggered_risks=triggered_risks,
+        data_needed=data_needed,
+        snapshot=snapshot,
+        label="Generated from current sprint state",
+    )
+
+
 # ---------- Sprints CRUD / listing ----------
 
 @router.post("/", response_model=Sprint)
@@ -286,6 +383,7 @@ def create_sprint(
         name=payload.name,
         start_date=payload.start_date or datetime.utcnow(),
         end_date=payload.end_date or datetime.utcnow(),
+        baseline_date=payload.baseline_date,
         owner_email=user_email,
     )
     db.add(sprint)
@@ -525,6 +623,20 @@ def get_sprint_risk(
         summary=summary,
         details=details,
     )
+
+@router.get("/{sprint_id}/insights", response_model=SprintInsights)
+def get_sprint_insights(
+    sprint_id: int,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    sprint = _get_accessible_sprint(sprint_id, user_email, db)
+
+    # Ensure issues are loaded for deterministic signals
+    _ = sprint.issues
+
+    insights = build_sprint_insights(sprint)
+    return insights
 
 
 # ---------- Filters metadata for dashboard ----------
