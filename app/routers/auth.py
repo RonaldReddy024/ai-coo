@@ -181,8 +181,8 @@ def auth_callback_page():
 
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
     const hashParams = new URLSearchParams(hash);
-    const access_token = hashParams.get("access_token");
-    const refresh_token = hashParams.get("refresh_token");
+    const access_token = hashParams.get("access_token") || url.searchParams.get("access_token");
+    const refresh_token = hashParams.get("refresh_token") || url.searchParams.get("refresh_token");
 
     async function finalize(payload) {
       const res = await fetch("/auth/finalize", {
