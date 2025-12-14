@@ -4,13 +4,26 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from ..deps import get_db
+from ..deps import get_current_user_email, get_db
 from .. import models
 from ..schemas import Sprint, SprintWithIssues
 from ..schemas import Issue as IssueSchema
 from ..schemas import IssueCreate, SprintAlert, SprintCreate, SprintRiskReport
 
 router = APIRouter()
+
+
+def _get_owned_sprint(
+    sprint_id: int, user_email: str, db: Session
+) -> models.Sprint:
+    sprint = (
+        db.query(models.Sprint)
+        .filter_by(id=sprint_id, owner_email=user_email)
+        .first()
+    )
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    return sprint
 
 
 def compute_risk_for_sprint(sprint: models.Sprint) -> None:
@@ -233,8 +246,16 @@ def generate_alerts_for_sprint(sprint: models.Sprint) -> list[SprintAlert]:
 # ---------- Sprints CRUD / listing ----------
 
 @router.post("/", response_model=Sprint)
-def create_sprint(payload: SprintCreate, db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter_by(id=payload.project_id).first()
+def create_sprint(
+    payload: SprintCreate,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    project = (
+        db.query(models.Project)
+        .filter_by(id=payload.project_id, owner_email=user_email)
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -243,6 +264,7 @@ def create_sprint(payload: SprintCreate, db: Session = Depends(get_db)):
         name=payload.name,
         start_date=payload.start_date or datetime.utcnow(),
         end_date=payload.end_date or datetime.utcnow(),
+        owner_email=user_email,
     )
     db.add(sprint)
     db.commit()
@@ -255,9 +277,11 @@ def list_sprints(
     db: Session = Depends(get_db),
     company_id: int | None = Query(None, description="Filter by company_id"),
     project_id: int | None = Query(None, description="Filter by project_id"),
+    user_email: str = Depends(get_current_user_email),
 ):
     query = db.query(models.Sprint).join(models.Project)
-
+    query = query.filter(models.Sprint.owner_email == user_email)
+    
     if company_id is not None:
         query = query.join(models.Company).filter(models.Company.id == company_id)
 
@@ -272,8 +296,9 @@ def list_sprints_with_issues(
     company_id: Optional[int] = None,
     project_id: Optional[int] = None,
     db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
 ):
-    query = db.query(models.Sprint)
+    query = db.query(models.Sprint).filter(models.Sprint.owner_email == user_email)
 
     if project_id:
         query = query.filter(models.Sprint.project_id == project_id)
@@ -293,10 +318,12 @@ def list_sprints_with_issues(
 # ---------- Issues ----------
 
 @router.get("/{sprint_id}/issues", response_model=List[IssueSchema])
-def list_issues_for_sprint(sprint_id: int, db: Session = Depends(get_db)):
-    sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
-    if not sprint:
-        raise HTTPException(status_code=404, detail="Sprint not found")
+def list_issues_for_sprint(
+    sprint_id: int,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    sprint = _get_owned_sprint(sprint_id, user_email, db)
 
     return sprint.issues
 
@@ -306,10 +333,10 @@ def create_issue_for_sprint(
     sprint_id: int,
     payload: IssueCreate,
     db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
 ):
-    sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
-    if not sprint:
-        raise HTTPException(status_code=404, detail="Sprint not found")
+    sprint = _get_owned_sprint(sprint_id, user_email, db)
+
 
     # Simple auto key generation: SPR-<sprint_id>-<n>
     count = db.query(models.Issue).filter_by(sprint_id=sprint_id).count()
@@ -338,10 +365,12 @@ def create_issue_for_sprint(
 # ---------- Sprint details & risk ----------
 
 @router.get("/{sprint_id}", response_model=SprintWithIssues)
-def get_sprint(sprint_id: int, db: Session = Depends(get_db)):
-    sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
-    if not sprint:
-        raise HTTPException(status_code=404, detail="Sprint not found")
+def get_sprint(
+    sprint_id: int,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    sprint = _get_owned_sprint(sprint_id, user_email, db)
 
     _ = sprint.issues
     compute_risk_for_sprint(sprint)
@@ -352,15 +381,13 @@ def get_sprint(sprint_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{sprint_id}/alerts", response_model=List[SprintAlert])
-def get_sprint_alerts(sprint_id: int, db: Session = Depends(get_db)):
-    sprint = (
-        db.query(models.Sprint)
-        .filter_by(id=sprint_id)
-        .first()
-    )
-    if not sprint:
-        raise HTTPException(status_code=404, detail="Sprint not found")
-
+def get_sprint_alerts(
+    sprint_id: int,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    sprint = _get_owned_sprint(sprint_id, user_email, db)
+    
     # Ensure issues are loaded
     _ = sprint.issues
 
@@ -374,10 +401,12 @@ def get_sprint_alerts(sprint_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/risk/{sprint_id}", response_model=SprintRiskReport)
-def get_sprint_risk(sprint_id: int, db: Session = Depends(get_db)):
-    sprint = db.query(models.Sprint).filter_by(id=sprint_id).first()
-    if not sprint:
-        raise HTTPException(status_code=404, detail="Sprint not found")
+def get_sprint_risk(
+    sprint_id: int,
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    sprint = _get_owned_sprint(sprint_id, user_email, db)
 
     # Ensure issues are loaded
     _ = sprint.issues
@@ -401,9 +430,12 @@ def get_sprint_risk(sprint_id: int, db: Session = Depends(get_db)):
 # ---------- Filters metadata for dashboard ----------
 
 @router.get("/filters", response_model=dict)
-def get_filter_metadata(db: Session = Depends(get_db)):
-    companies = db.query(models.Company).all()
-    projects = db.query(models.Project).all()
+def get_filter_metadata(
+    db: Session = Depends(get_db),
+    user_email: str = Depends(get_current_user_email),
+):
+    companies = db.query(models.Company).filter_by(owner_email=user_email).all()
+    projects = db.query(models.Project).filter_by(owner_email=user_email).all()
 
     return {
         "companies": [{"id": c.id, "name": c.name} for c in companies],
