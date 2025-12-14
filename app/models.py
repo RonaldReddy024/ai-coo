@@ -74,6 +74,7 @@ class Sprint(Base):
     risk_level = Column(String, default="low")
     last_evaluated_at = Column(DateTime, default=datetime.utcnow)
     owner_email = Column(String, index=True, nullable=True)
+    baseline_date = Column(DateTime, nullable=True)
     
     project = relationship("Project", back_populates="sprints")
     issues = relationship("Issue", back_populates="sprint", cascade="all, delete-orphan")
