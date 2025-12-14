@@ -66,6 +66,20 @@ class SprintWithIssues(Sprint):
     issues: List["Issue"] = []
 
 
+class SprintCollaboratorBase(BaseModel):
+    email: str
+
+
+class SprintCollaboratorCreate(SprintCollaboratorBase):
+    pass
+
+
+class SprintCollaborator(SprintCollaboratorBase):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SprintRiskReport(BaseModel):
     sprint_id: int
     risk_level: str
