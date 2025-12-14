@@ -93,3 +93,15 @@ def ensure_sqlite_schema(engine):
             conn.execute(
                 text("ALTER TABLE tasks ADD COLUMN owner_email VARCHAR;"),
             )
+
+        sprint_columns = {row[1] for row in conn.execute(text("PRAGMA table_info(sprints);"))}
+        if "owner_email" not in sprint_columns:
+            conn.execute(text("ALTER TABLE sprints ADD COLUMN owner_email VARCHAR;"))
+
+        project_columns = {row[1] for row in conn.execute(text("PRAGMA table_info(projects);"))}
+        if "owner_email" not in project_columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN owner_email VARCHAR;"))
+
+        company_columns = {row[1] for row in conn.execute(text("PRAGMA table_info(companies);"))}
+        if "owner_email" not in company_columns:
+            conn.execute(text("ALTER TABLE companies ADD COLUMN owner_email VARCHAR;"))
