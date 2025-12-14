@@ -146,6 +146,7 @@ class Issue(IssueBase):
 class TaskBase(BaseModel):
     title: str
     metadata: Optional[Dict[str, Any]] = None
+    prerequisite_task_id: Optional[int] = None
 
 
 class TaskCreate(TaskBase):
@@ -159,7 +160,8 @@ class TaskUpdate(BaseModel):
     result_text: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     external_provider_status: Optional[str] = None
-
+    prerequisite_task_id: Optional[int] = None
+    
 class Task(TaskBase):
     id: int
     status: str
