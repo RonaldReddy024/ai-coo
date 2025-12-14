@@ -77,7 +77,21 @@ class Sprint(Base):
     
     project = relationship("Project", back_populates="sprints")
     issues = relationship("Issue", back_populates="sprint", cascade="all, delete-orphan")
+    collaborators = relationship(
+        "SprintCollaborator",
+        back_populates="sprint",
+        cascade="all, delete-orphan",
+    )
 
+
+class SprintCollaborator(Base):
+    __tablename__ = "sprint_collaborators"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sprint_id = Column(Integer, ForeignKey("sprints.id"), nullable=False)
+    email = Column(String, index=True, nullable=False)
+
+    sprint = relationship("Sprint", back_populates="collaborators")
 
 class Issue(Base):
     __tablename__ = "issues"
