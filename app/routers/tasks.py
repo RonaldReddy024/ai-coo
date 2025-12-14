@@ -97,6 +97,7 @@ def serialize_task(task: Task) -> dict:
         "company_id": task.company_id,
         "squad": task.squad,
         "owner_email": task.owner_email,
+        "prerequisite_task_id": getattr(task, "prerequisite_task_id", None),
         "metadata_json": task.metadata_json or {},
         "result_text": task.result_text,
         "external_provider_status": getattr(task, "external_provider_status", None),
@@ -175,6 +176,7 @@ async def create_task(
             company_id=task.company_id,
             squad=task.squad,
             owner_email=user_email,
+            prerequisite_task_id=task.prerequisite_task_id,
         )
         db.add(db_task)
         db.commit()
@@ -206,6 +208,9 @@ async def update_task(task_id: int, update: TaskUpdate, db: Session = Depends(ge
 
         if update.external_provider_status is not None:
             db_task.external_provider_status = update.external_provider_status
+            
+        if update.prerequisite_task_id is not None:
+            db_task.prerequisite_task_id = update.prerequisite_task_id
 
         db.commit()
         db.refresh(db_task)
@@ -234,6 +239,7 @@ def run_task_async(
         company_id=getattr(payload, "company_id", None),
         squad=getattr(payload, "squad", None),
         owner_email=user_email,
+        prerequisite_task_id=getattr(payload, "prerequisite_task_id", None),
     )
     db.add(task)
     db.commit()
@@ -258,6 +264,7 @@ def run_task_async(
             "company_id": getattr(task, "company_id", None),
             "squad": getattr(task, "squad", None),
             "owner_email": getattr(task, "owner_email", None),
+            "prerequisite_task_id": getattr(task, "prerequisite_task_id", None),
             "external_provider_status": getattr(task, "external_provider_status", None),
         },
     }
@@ -278,6 +285,7 @@ def run_task(
         company_id=payload.company_id,
         squad=payload.squad,
         owner_email=user_email,
+        prerequisite_task_id=payload.prerequisite_task_id,
     )
     db.add(task)
     db.commit()
@@ -398,6 +406,7 @@ def run_task_debug(
         metadata_json=payload.metadata or {},
         company_id=payload.company_id,
         squad=payload.squad,
+        prerequisite_task_id=payload.prerequisite_task_id,
     )
     db.add(task)
     db.commit()
@@ -461,6 +470,7 @@ def run_task_debug(
             "status": task.status,
             "company_id": task.company_id,
             "squad": task.squad,
+            "prerequisite_task_id": getattr(task, "prerequisite_task_id", None),
             "metadata_json": task.metadata_json,
             "result_text": task.result_text,
             "owner_email": getattr(task, "owner_email", None),
